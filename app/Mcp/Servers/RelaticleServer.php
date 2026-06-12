@@ -103,4 +103,28 @@ final class RelaticleServer extends Server
     protected array $prompts = [
         CrmOverviewPrompt::class,
     ];
+
+    /**
+     * Seam de extensión para addons (p. ej. srjingles/sr-crm).
+     *
+     * Un addon puede ampliar este servidor sin tocar esta clase ni routes/ai.php:
+     * empuja sus clases a config('mcp.extra_tools|extra_resources|extra_prompts') desde
+     * su service provider (en runtime) y aquí se fusionan con las nativas. Sin addon, los
+     * defaults vacíos lo dejan idéntico.
+     */
+    protected function boot(): void
+    {
+        parent::boot();
+
+        /** @var array<int, class-string<Tool>> $extraTools */
+        $extraTools = config('mcp.extra_tools', []);
+        /** @var array<int, class-string<Server\Resource>> $extraResources */
+        $extraResources = config('mcp.extra_resources', []);
+        /** @var array<int, class-string<Prompt>> $extraPrompts */
+        $extraPrompts = config('mcp.extra_prompts', []);
+
+        $this->tools = [...$this->tools, ...$extraTools];
+        $this->resources = [...$this->resources, ...$extraResources];
+        $this->prompts = [...$this->prompts, ...$extraPrompts];
+    }
 }

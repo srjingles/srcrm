@@ -10,6 +10,7 @@ use App\Enums\CustomFields\OpportunityField as OpportunityCustomField;
 use App\Enums\CustomFields\PeopleField as PeopleCustomField;
 use App\Enums\CustomFields\TaskField as TaskCustomField;
 use App\Enums\OnboardingUseCase;
+use App\Events\TeamCustomFieldsCreated;
 use App\Features\OnboardSeed;
 use App\Models\Company;
 use App\Models\Note;
@@ -72,6 +73,9 @@ final readonly class CreateTeamCustomFields
 
             $this->onboardSeeder->run($owner, $team, $fixtureSet);
         }
+
+        // Seam para extensiones: los campos base (y el onboarding) ya están sembrados.
+        event(new TeamCustomFieldsCreated($team));
     }
 
     /** @param class-string $model */
