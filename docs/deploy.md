@@ -39,12 +39,12 @@ También añade los assets publicados (`public/{css,js}/srjingles/`) al
 
 ## Primer despliegue en Forge
 
-1. **Acceso SSH al repo privado del addon.** Composer tendrá que clonar
-   `srcrm-addon`. GitHub no permite reutilizar una *deploy key* en dos repos, así
-   que lo más simple es copiar la clave SSH pública del servidor de Forge
-   (Forge → Server → SSH) y añadirla a **tu cuenta de GitHub**
-   (Settings → SSH and GPG keys). Da acceso a todos tus repos privados.
-   *(Alternativa más cerrada: una cuenta "machine user" con acceso a ambos repos.)*
+1. **Acceso de Composer al repo privado del addon (token de GitHub).** Composer
+   descarga `srjingles/sr-crm` por el `dist` zipball de la API de GitHub
+   (`api.github.com/.../zipball/...`), que con un repo **privado** y sin autenticar
+   devuelve **404**. Una clave SSH NO sirve aquí (es para `git clone`/`source`, no
+   para la API). Solución: un **personal access token** con lectura del repo,
+   configurado en Composer. Ver el detalle abajo en *Acceso al repo privado*.
 
 2. **Crear el sitio** apuntando a `srjingles/srcrm`, rama **`production`**.
 
@@ -70,6 +70,42 @@ También añade los assets publicados (`public/{css,js}/srjingles/`) al
    - `sr-crm:sync-custom-fields` siembra/actualiza los custom fields en cada equipo.
    - La config del addon usa la del paquete por defecto; solo si necesitas
      sobreescribirla: `php artisan vendor:publish --tag=srcrm-config`.
+
+### Acceso al repo privado (token de GitHub)
+
+`srjingles` es una **organización**, y el addon vive en el repo privado
+`srjingles/srcrm-addon`. El token se crea **desde tu usuario personal** de GitHub
+(no desde los ajustes de la organización), pero da acceso a un repo **de la
+organización** — funciona porque eres miembro con acceso a ese repo.
+
+1. **Crear el token (classic)** en tu cuenta personal:
+   `https://github.com/settings/tokens/new`
+   - *Note*: `Forge srcrm-addon` · *Expiration*: la que prefieras (apúntala para rotarlo).
+   - *Select scopes*: marca **`repo`** (acceso a repos privados de orgs donde eres miembro).
+   - **Generate token** y copia el valor (`ghp_…`, no se vuelve a mostrar).
+   - Ruta manual: avatar → *Settings* → *Developer settings* → *Personal access tokens
+     → Tokens (classic)*. **No** es el menú de Settings de la organización.
+
+2. **(Solo si da 404)** la organización restringe los classic tokens. Permítelos /
+   apruébalos en: Settings de la **organización** → *Third-party Access → Personal
+   access tokens*.
+
+3. **Configurar el token en el servidor** (como usuario `forge`, vía la terminal de
+   Forge o `ssh forge@IP`):
+   ```bash
+   composer config --global --auth github-oauth.github.com ghp_TU_TOKEN
+   ```
+   Persiste en `~/.config/composer/auth.json` del usuario `forge` (fuera del repo;
+   nunca lo commitees). Verifícalo sin redeploy:
+   ```bash
+   curl -s -H "Authorization: token ghp_TU_TOKEN" \
+     https://api.github.com/repos/srjingles/srcrm-addon | head
+   # debe mostrar "full_name": "srjingles/srcrm-addon", no un 404
+   ```
+
+> Alternativa fine-grained (permiso mínimo): token de tipo *fine-grained* con
+> *Resource owner* = `srjingles`, *Only select repositories* = `srcrm-addon`,
+> *Contents: Read-only*. Requiere que un admin de la org lo apruebe.
 
 ## Publicar una nueva versión
 
