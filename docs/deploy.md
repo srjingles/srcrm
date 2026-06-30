@@ -46,10 +46,37 @@ También añade los assets publicados (`public/{css,js}/srjingles/`) al
    para la API). Solución: un **personal access token** con lectura del repo,
    configurado en Composer. Ver el detalle abajo en *Acceso al repo privado*.
 
-2. **Crear el sitio** apuntando a `srjingles/srcrm`, rama **`production`**.
+2. **Crear el sitio** apuntando a `srjingles/srcrm`, rama **`production`**. Un
+   ÚNICO site sirve los dos paneles (ver *Dominios y paneles*).
 
-3. **`.env` de producción**: `APP_ENV=production`, `APP_DEBUG=false`, `APP_KEY`,
-   base de datos, correo, etc.
+3. **`.env` de producción**. Mínimo imprescindible:
+
+   ```env
+   APP_ENV=production
+   APP_DEBUG=false
+   APP_KEY=base64:...          # php artisan key:generate si está vacío
+   APP_URL=https://crm.srjingles.com
+   APP_PANEL_DOMAIN=crm.srjingles.com
+   SYSADMIN_DOMAIN=sysadmin.crm.srjingles.com
+
+   # Base de datos: PostgreSQL OBLIGATORIO (ver aviso abajo)
+   DB_CONNECTION=pgsql
+   DB_HOST=127.0.0.1
+   DB_PORT=5432
+   DB_DATABASE=crm
+   DB_USERNAME=forge
+   DB_PASSWORD=...
+
+   # Correo (necesario para verificación de email en el registro del CRM)
+   MAIL_MAILER=...
+   ```
+
+   > ⚠️ **PostgreSQL es obligatorio.** `config/database.php` cae a **SQLite** por
+   > defecto si falta `DB_CONNECTION`, y la migración `create_ai_credit_balances_table`
+   > usa `ALTER TABLE ... ADD CONSTRAINT ... CHECK`, que SQLite no soporta: el deploy
+   > falla en `migrate`. Crea la base de datos Postgres en Forge (Server → Database) y
+   > rellena el bloque `DB_*`. Si el servidor se aprovisionó solo con MySQL, instala
+   > PostgreSQL (recomendado: es lo que el proyecto usa y testea).
 
 4. **Script de deploy** (Forge → Site → Deploy Script):
 
@@ -70,6 +97,46 @@ También añade los assets publicados (`public/{css,js}/srjingles/`) al
    - `sr-crm:sync-custom-fields` siembra/actualiza los custom fields en cada equipo.
    - La config del addon usa la del paquete por defecto; solo si necesitas
      sobreescribirla: `php artisan vendor:publish --tag=srcrm-config`.
+
+### Dominios y paneles
+
+La app tiene **dos paneles Filament** servidos por **la misma aplicación**, que se
+enrutan por **dominio** (no por path) en cuanto se definen estas env vars:
+
+| Panel | Modelo de usuario | Dominio | Env var |
+|-------|-------------------|---------|---------|
+| `app` (CRM) | `User` + equipos (Jetstream) | `crm.srjingles.com` | `APP_PANEL_DOMAIN` |
+| `sysadmin` | `SystemAdministrator` | `sysadmin.crm.srjingles.com` | `SYSADMIN_DOMAIN` |
+
+Por eso se usa **un solo site** en Forge (mismo document root): el dominio principal
+es `crm.srjingles.com` y `sysadmin.crm.srjingles.com` se añade como **alias** (Forge
+los une en el `server_name` del mismo bloque Nginx). NO crear dos sites.
+
+- **DNS**: registros A de ambos subdominios → IP del servidor.
+- **SSL**: un certificado Let's Encrypt que incluya **ambos** dominios (cert SAN).
+- **Sesiones**: deja `SESSION_DOMAIN` sin definir; cada panel gestiona su cookie.
+
+### Usuarios iniciales
+
+Cada panel tiene su propio flujo (modelos distintos):
+
+- **sysadmin** — comando dedicado, en el servidor:
+  ```bash
+  cd /home/forge/crm.srjingles.com
+  php artisan sysadmin:create        # interactivo: nombre, email, contraseña
+  ```
+  Luego entra en `https://sysadmin.crm.srjingles.com`.
+
+- **CRM (`app`)** — **regístrate desde la web** en `https://crm.srjingles.com`. El
+  registro está habilitado (`Features::registration()` + `->registration(...)`) y crea
+  el usuario **y su equipo** correctamente. **No** uses `make:filament-user`: crearía
+  un `User` sin equipo y rompería la tenencia multi-tenant.
+
+  > El registro exige verificación de email (`Features::emailVerification()`). Si el
+  > `.env` aún no tiene `MAIL_*` configurado, marca el email como verificado a mano:
+  > ```bash
+  > php artisan tinker --execute="\App\Models\User::where('email','TU_EMAIL')->update(['email_verified_at'=>now()]);"
+  > ```
 
 ### Acceso al repo privado (token de GitHub)
 
