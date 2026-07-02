@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "40faf0a1775f08fd100bb1f651afe325",
+    "content-hash": "586616030256e3dc13116ad7d3c828d6",
     "packages": [
         {
             "name": "andreiio/blade-remix-icon",
@@ -12325,6 +12325,58 @@
                 }
             ],
             "time": "2026-06-22T07:55:44+00:00"
+        },
+        {
+            "name": "srjingles/sr-crm",
+            "version": "v1.1.0",
+            "source": {
+                "type": "git",
+                "url": "git@github.com:srjingles/srcrm-addon.git",
+                "reference": "12ec28976d8fa06abe108db4876d0e087af5af8b"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/srjingles/srcrm-addon/zipball/12ec28976d8fa06abe108db4876d0e087af5af8b",
+                "reference": "12ec28976d8fa06abe108db4876d0e087af5af8b",
+                "shasum": ""
+            },
+            "require": {
+                "filament/filament": "^5.0",
+                "laravel/framework": "^12.0 || ^13.0",
+                "php": "^8.4",
+                "relaticle/custom-fields": "^3.0"
+            },
+            "require-dev": {
+                "mockery/mockery": "^1.6",
+                "pestphp/pest": "^4.0"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "SrJingles\\SrCrm\\SrCrmServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "SrJingles\\SrCrm\\": "src/"
+                }
+            },
+            "autoload-dev": {
+                "psr-4": {
+                    "SrJingles\\SrCrm\\Tests\\": "tests/"
+                }
+            },
+            "license": [
+                "proprietary"
+            ],
+            "description": "SrJingles addon para personalizar Relaticle CRM",
+            "support": {
+                "source": "https://github.com/srjingles/srcrm-addon/tree/v1.1.0",
+                "issues": "https://github.com/srjingles/srcrm-addon/issues"
+            },
+            "time": "2026-07-01T10:38:34+00:00"
         },
         {
             "name": "symfony/clock",
