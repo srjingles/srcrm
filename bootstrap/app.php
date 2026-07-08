@@ -105,6 +105,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $schedule->command('app:generate-sitemap')->daily();
         $schedule->command('import:cleanup')->hourly();
         $schedule->command('queue:prune-batches --hours=24')->daily();
+        $schedule->command('horizon:snapshot')->everyFiveMinutes();
         $schedule->command('invitations:cleanup')->daily();
         $schedule->command('activitylog:clean --force')->daily();
         $schedule->command('chat:expire-pending-actions')->everyFiveMinutes();
