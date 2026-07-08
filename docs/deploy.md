@@ -57,7 +57,7 @@ También añade los assets publicados (`public/{css,js}/srjingles/`) al
    APP_KEY=base64:...          # php artisan key:generate si está vacío
    APP_URL=https://crm.srjingles.com
    APP_PANEL_DOMAIN=crm.srjingles.com
-   SYSADMIN_DOMAIN=sysadmin.crm.srjingles.com
+   SYSADMIN_DOMAIN=admin.crm.srjingles.com
 
    # Base de datos: PostgreSQL OBLIGATORIO (ver aviso abajo)
    DB_CONNECTION=pgsql
@@ -106,10 +106,10 @@ enrutan por **dominio** (no por path) en cuanto se definen estas env vars:
 | Panel | Modelo de usuario | Dominio | Env var |
 |-------|-------------------|---------|---------|
 | `app` (CRM) | `User` + equipos (Jetstream) | `crm.srjingles.com` | `APP_PANEL_DOMAIN` |
-| `sysadmin` | `SystemAdministrator` | `sysadmin.crm.srjingles.com` | `SYSADMIN_DOMAIN` |
+| `sysadmin` | `SystemAdministrator` | `admin.crm.srjingles.com` | `SYSADMIN_DOMAIN` |
 
 Por eso se usa **un solo site** en Forge (mismo document root): el dominio principal
-es `crm.srjingles.com` y `sysadmin.crm.srjingles.com` se añade como **alias** (Forge
+es `crm.srjingles.com` y `admin.crm.srjingles.com` se añade como **alias** (Forge
 los une en el `server_name` del mismo bloque Nginx). NO crear dos sites.
 
 - **DNS**: registros A de ambos subdominios → IP del servidor.
@@ -125,7 +125,7 @@ Cada panel tiene su propio flujo (modelos distintos):
   cd /home/forge/crm.srjingles.com
   php artisan sysadmin:create        # interactivo: nombre, email, contraseña
   ```
-  Luego entra en `https://sysadmin.crm.srjingles.com`.
+  Luego entra en `https://admin.crm.srjingles.com`.
 
 - **CRM (`app`)** — **regístrate desde la web** en `https://crm.srjingles.com`. El
   registro está habilitado (`Features::registration()` + `->registration(...)`) y crea
