@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Resources\V1\Concerns;
 
+use App\Contracts\CustomFields\ResolvesChoiceLabels;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 use Relaticle\CustomFields\Models\CustomField;
@@ -57,7 +58,9 @@ trait FormatsCustomFields
 
         return [
             'id' => (string) $rawValue,
-            'label' => $option !== null ? $option->name : (string) $rawValue,
+            'label' => $option !== null
+                ? $option->name
+                : ($this->resolveDynamicLabel($customField, $rawValue) ?? (string) $rawValue),
         ];
     }
 
@@ -76,10 +79,39 @@ trait FormatsCustomFields
 
                 return [
                     'id' => $stringId,
-                    'label' => $option !== null ? $option->name : $stringId,
+                    'label' => $option !== null
+                        ? $option->name
+                        : ($this->resolveDynamicLabel($customField, $optionId) ?? $stringId),
                 ];
             })
             ->values()
             ->all();
+    }
+
+    /**
+     * Seam de extensión para addons (p. ej. srjingles/sr-crm).
+     *
+     * Un field type cuyas opciones son dinámicas (no viven en `custom_field_options`) no se
+     * puede resolver contra $customField->options, así que sin esto su label sería el id
+     * crudo. El addon registra un resolutor por clave de tipo en
+     * config('custom-fields.choice_labelers'). Sin addon, el mapa vacío deja el fallback al
+     * id de siempre.
+     *
+     * @see ResolvesChoiceLabels
+     */
+    private function resolveDynamicLabel(CustomField $customField, mixed $rawValue): ?string
+    {
+        /** @var array<string, class-string<ResolvesChoiceLabels>> $labelers */
+        $labelers = config('custom-fields.choice_labelers', []);
+
+        $labeler = $labelers[$customField->type] ?? null;
+
+        if ($labeler === null) {
+            return null;
+        }
+
+        $label = resolve($labeler)->labelFor($rawValue);
+
+        return $label === '' ? null : $label;
     }
 }
