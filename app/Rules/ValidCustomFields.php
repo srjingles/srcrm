@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Rules;
 
 use App\Models\CustomField;
+use App\Support\CustomFields\DynamicChoices;
 use Closure;
 use Illuminate\Contracts\Database\Query\Builder;
 use Illuminate\Contracts\Validation\ValidationRule;
@@ -122,6 +123,12 @@ final readonly class ValidCustomFields implements ValidationRule
      * For multi-choice fields (multi_select, checkbox_list): validates each array element.
      * Skips fields that accept arbitrary values (e.g., tags) or use a lookup_type.
      *
+     * Un field type con opciones DINÁMICAS (seam de addons, p. ej. team_member) no tiene filas
+     * en `custom_field_options`, así que la lista saldría vacía y `Rule::in([])` rechazaría
+     * cualquier valor — el campo quedaba inescribible por chat, MCP y API. Cuando hay proveedor
+     * se valida contra lo que él declara elegible: sigue siendo un `Rule::in` cerrado, solo que
+     * la lista viene de otro sitio.
+     *
      * @param  array<string, array<int, mixed>>  $rules
      */
     private function addChoiceFieldOptionRules(BaseCustomField $customField, array &$rules): void
@@ -144,7 +151,12 @@ final readonly class ValidCustomFields implements ValidationRule
             return;
         }
 
-        $optionIds = $customField->options->pluck('id')->all();
+        $provider = DynamicChoices::forField($customField);
+
+        $optionIds = $provider !== null
+            ? array_keys($provider->options($this->tenantId))
+            : $customField->options->pluck('id')->all();
+
         $inRule = Rule::in($optionIds);
 
         $ruleKey = "custom_fields.{$customField->code}";

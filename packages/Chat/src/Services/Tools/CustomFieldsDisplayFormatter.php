@@ -7,6 +7,7 @@ namespace Relaticle\Chat\Services\Tools;
 use App\Enums\CustomFieldType;
 use App\Models\CustomField;
 use App\Models\User;
+use App\Support\CustomFields\DynamicChoices;
 use DateTimeInterface;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Date;
@@ -103,7 +104,11 @@ final readonly class CustomFieldsDisplayFormatter
     {
         $option = $field->options->firstWhere('id', (string) $value);
 
-        return $option instanceof CustomFieldOption ? $option->name : (string) $value;
+        if ($option instanceof CustomFieldOption) {
+            return $option->name;
+        }
+
+        return $this->dynamicLabel($field, $value) ?? (string) $value;
     }
 
     private function renderMultiChoice(CustomField $field, mixed $value): string
@@ -136,11 +141,26 @@ final readonly class CustomFieldsDisplayFormatter
     {
         $byId = $field->options->keyBy('id');
 
-        return array_values(array_map(function (mixed $id) use ($byId): string {
+        return array_values(array_map(function (mixed $id) use ($byId, $field): string {
             $option = $byId->get((string) $id);
 
-            return $option instanceof CustomFieldOption ? $option->name : (string) $id;
+            if ($option instanceof CustomFieldOption) {
+                return $option->name;
+            }
+
+            return $this->dynamicLabel($field, $id) ?? (string) $id;
         }, $ids));
+    }
+
+    /**
+     * Seam de addons: sin esto, la tarjeta de propuesta de un field type con opciones
+     * dinámicas enseñaría el id crudo al usuario justo cuando tiene que decidir si aprueba.
+     */
+    private function dynamicLabel(CustomField $field, mixed $value): ?string
+    {
+        $label = DynamicChoices::forField($field)?->labelFor($value);
+
+        return $label === '' ? null : $label;
     }
 
     private function renderDate(mixed $value): string

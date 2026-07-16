@@ -6,6 +6,7 @@ namespace Relaticle\Chat\Services\Tools;
 
 use App\Models\CustomField;
 use App\Models\Team;
+use App\Support\CustomFields\DynamicChoices;
 use Relaticle\CustomFields\Enums\FieldDataType;
 use Relaticle\CustomFields\Facades\CustomFieldsType;
 use Relaticle\CustomFields\Models\CustomFieldOption;
@@ -37,7 +38,7 @@ final readonly class CustomFieldsSchemaDescriber
         ];
 
         foreach ($fields as $field) {
-            $lines[] = '- '.$this->describeField($field);
+            $lines[] = '- '.$this->describeField($field, (string) $team->getKey());
         }
 
         $lines[] = '';
@@ -46,18 +47,19 @@ final readonly class CustomFieldsSchemaDescriber
         return implode("\n", $lines);
     }
 
-    private function describeField(CustomField $field): string
+    private function describeField(CustomField $field, string $teamId): string
     {
         $typeData = CustomFieldsType::getFieldType($field->type);
         $dataType = $typeData?->dataType;
 
         $base = "{$field->code} (".$this->humanType($dataType, $field->type);
 
-        if ($dataType?->isChoiceField() && $field->options->isNotEmpty()) {
-            $labels = $field->options
-                ->map(fn (CustomFieldOption $opt): string => '"'.$opt->name.'"')
-                ->implode(', ');
-            $base .= ", one of: {$labels}";
+        if ($dataType?->isChoiceField()) {
+            $labels = $this->choiceLabels($field, $teamId);
+
+            if ($labels !== []) {
+                $base .= ', one of: "'.implode('", "', $labels).'"';
+            }
         }
 
         $hint = $this->formatHint($dataType, $field->type);
@@ -66,6 +68,28 @@ final readonly class CustomFieldsSchemaDescriber
         }
 
         return $base.')';
+    }
+
+    /**
+     * Los labels elegibles del campo.
+     *
+     * Seam de addons: un field type con opciones dinámicas no tiene filas en
+     * `custom_field_options`, así que sin el proveedor el modelo no vería ni un valor válido y
+     * no podría rellenar el campo.
+     *
+     * @return list<string>
+     */
+    private function choiceLabels(CustomField $field, string $teamId): array
+    {
+        $provider = DynamicChoices::forField($field);
+
+        if ($provider !== null) {
+            return array_values($provider->options($teamId));
+        }
+
+        return array_values($field->options
+            ->map(fn (CustomFieldOption $opt): string => $opt->name)
+            ->all());
     }
 
     private function humanType(?FieldDataType $dataType, string $rawType): string

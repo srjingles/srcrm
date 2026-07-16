@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Resources\V1\Concerns;
 
-use App\Contracts\CustomFields\ResolvesChoiceLabels;
+use App\Support\CustomFields\DynamicChoices;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 use Relaticle\CustomFields\Models\CustomField;
@@ -92,25 +92,14 @@ trait FormatsCustomFields
      * Seam de extensión para addons (p. ej. srjingles/sr-crm).
      *
      * Un field type cuyas opciones son dinámicas (no viven en `custom_field_options`) no se
-     * puede resolver contra $customField->options, así que sin esto su label sería el id
-     * crudo. El addon registra un resolutor por clave de tipo en
-     * config('custom-fields.choice_labelers'). Sin addon, el mapa vacío deja el fallback al
-     * id de siempre.
+     * puede resolver contra $customField->options, así que sin esto su label sería el id crudo.
+     * Sin addon, no hay proveedor y el fallback al id es el de siempre.
      *
-     * @see ResolvesChoiceLabels
+     * @see DynamicChoices  para la regla de precedencia
      */
     private function resolveDynamicLabel(CustomField $customField, mixed $rawValue): ?string
     {
-        /** @var array<string, class-string<ResolvesChoiceLabels>> $labelers */
-        $labelers = config('custom-fields.choice_labelers', []);
-
-        $labeler = $labelers[$customField->type] ?? null;
-
-        if ($labeler === null) {
-            return null;
-        }
-
-        $label = resolve($labeler)->labelFor($rawValue);
+        $label = DynamicChoices::forField($customField)?->labelFor($rawValue);
 
         return $label === '' ? null : $label;
     }

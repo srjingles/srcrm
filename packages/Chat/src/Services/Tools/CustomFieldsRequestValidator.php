@@ -7,7 +7,9 @@ namespace Relaticle\Chat\Services\Tools;
 use App\Models\CustomField;
 use App\Models\User;
 use App\Rules\ValidCustomFields;
+use App\Support\CustomFields\DynamicChoices;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Collection as SupportCollection;
 use Illuminate\Support\Facades\Validator;
 use Relaticle\CustomFields\Facades\CustomFieldsType;
 
@@ -31,7 +33,7 @@ final readonly class CustomFieldsRequestValidator
 
         $fields = $this->loadFields($teamId, $entityType, array_keys($rawCustomFields));
 
-        $translated = $this->translateLabels($rawCustomFields, $fields);
+        $translated = $this->translateLabels($rawCustomFields, $fields, $teamId);
 
         if ($translated->error !== null) {
             return $translated;
@@ -72,7 +74,7 @@ final readonly class CustomFieldsRequestValidator
      * @param  array<string, mixed>  $raw
      * @param  Collection<int, CustomField>  $fields
      */
-    private function translateLabels(array $raw, Collection $fields): CustomFieldsValidationResult
+    private function translateLabels(array $raw, Collection $fields, string $teamId): CustomFieldsValidationResult
     {
         $clean = [];
         $byCode = $fields->keyBy('code');
@@ -101,7 +103,7 @@ final readonly class CustomFieldsRequestValidator
                 continue;
             }
 
-            $optionsByLabel = $field->options->keyBy('name');
+            $idsByLabel = $this->idsByLabel($field, $teamId);
 
             if ($dataType->isMultiChoiceField()) {
                 if (! is_array($value)) {
@@ -113,14 +115,14 @@ final readonly class CustomFieldsRequestValidator
 
                 $translated = [];
                 foreach ($value as $label) {
-                    $option = $optionsByLabel->get((string) $label);
-                    if ($option === null) {
+                    $id = $idsByLabel->get((string) $label);
+                    if ($id === null) {
                         return new CustomFieldsValidationResult(
                             cleanFields: [],
                             error: "custom_fields.{$code} option \"{$label}\" is not one of the configured choices.",
                         );
                     }
-                    $translated[] = $option->id;
+                    $translated[] = $id;
                 }
 
                 $clean[$code] = $translated;
@@ -135,17 +137,39 @@ final readonly class CustomFieldsRequestValidator
                 );
             }
 
-            $option = $optionsByLabel->get((string) $value);
-            if ($option === null) {
+            $id = $idsByLabel->get((string) $value);
+            if ($id === null) {
                 return new CustomFieldsValidationResult(
                     cleanFields: [],
                     error: "custom_fields.{$code} option \"{$value}\" is not one of the configured choices.",
                 );
             }
 
-            $clean[$code] = $option->id;
+            $clean[$code] = $id;
         }
 
         return new CustomFieldsValidationResult(cleanFields: $clean, error: null);
+    }
+
+    /**
+     * Mapa label→id de las opciones del campo.
+     *
+     * Seam de addons: un field type con opciones dinámicas no las tiene en tabla, las aporta su
+     * proveedor. Traduciéndolas aquí, el modelo sigue mandando el NOMBRE como en cualquier otro
+     * choice field y nunca ve un id — que es lo que exige la regla 6 del prompt.
+     *
+     * @return SupportCollection<string, int|string>
+     */
+    private function idsByLabel(CustomField $field, string $teamId): SupportCollection
+    {
+        $provider = DynamicChoices::forField($field);
+
+        if ($provider !== null) {
+            /** @var SupportCollection<string, int|string> */
+            return collect($provider->options($teamId))->flip();
+        }
+
+        /** @var SupportCollection<string, int|string> */
+        return $field->options->pluck('id', 'name');
     }
 }
