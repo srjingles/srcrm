@@ -2,11 +2,20 @@
 
 declare(strict_types=1);
 
-$reverbBroadcastHost = env('BROADCAST_REVERB_HOST', env('REVERB_HOST'));
+/**
+ * Una var EN BLANCO en el .env (`VAR=`) vale cadena vacía, no "sin definir": el segundo
+ * argumento de env() no entra y el fallback nunca ocurre. Y .env.example documenta estas cuatro
+ * como "déjalas en blanco y se usarán las REVERB_*", así que hay que tratar el blanco como
+ * ausente de verdad. Si no, el host se queda vacío y CADA emisión revienta con
+ * `MalformedUriException` desde Pusher (visto en producción: el chat dejó de responder entero).
+ */
+$reverbEnv = static fn (string $key): mixed => ($value = env($key)) === '' ? null : $value;
+
+$reverbBroadcastHost = $reverbEnv('BROADCAST_REVERB_HOST') ?? env('REVERB_HOST');
 $reverbHostIsLoopback = in_array($reverbBroadcastHost, ['127.0.0.1', '::1', 'localhost'], true);
-$reverbBroadcastScheme = env('BROADCAST_REVERB_SCHEME', $reverbHostIsLoopback ? 'http' : env('REVERB_SCHEME', 'https'));
-$reverbBroadcastVerify = env('BROADCAST_REVERB_VERIFY', ! $reverbHostIsLoopback);
-$reverbBroadcastPort = (int) env('BROADCAST_REVERB_PORT', env('REVERB_PORT', 443));
+$reverbBroadcastScheme = $reverbEnv('BROADCAST_REVERB_SCHEME') ?? ($reverbHostIsLoopback ? 'http' : env('REVERB_SCHEME', 'https'));
+$reverbBroadcastVerify = $reverbEnv('BROADCAST_REVERB_VERIFY') ?? ! $reverbHostIsLoopback;
+$reverbBroadcastPort = (int) ($reverbEnv('BROADCAST_REVERB_PORT') ?? env('REVERB_PORT', 443));
 
 return [
 
