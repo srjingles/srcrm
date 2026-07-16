@@ -78,25 +78,121 @@ También añade los assets publicados (`public/{css,js}/srjingles/`) al
    > rellena el bloque `DB_*`. Si el servidor se aprovisionó solo con MySQL, instala
    > PostgreSQL (recomendado: es lo que el proyecto usa y testea).
 
-4. **Script de deploy** (Forge → Site → Deploy Script):
+4. **Script de deploy** (Forge → Site → Deploy Script). El sitio usa despliegue
+   sin downtime (releases), de ahí los helpers `$CREATE_RELEASE`/`$ACTIVATE_RELEASE`:
 
    ```bash
-   cd /home/forge/<tu-sitio>
-   git pull origin production
-   composer install --no-dev --optimize-autoloader --no-interaction
-   npm ci && npm run build
-   php artisan migrate --force
-   php artisan sr-crm:sync-custom-fields
-   php artisan filament:assets        # publica los assets registrados por el addon
-   php artisan filament:optimize
-   php artisan optimize
+   $CREATE_RELEASE()
+
+   cd $FORGE_RELEASE_DIRECTORY
+
+   $FORGE_COMPOSER install --no-dev --no-interaction --prefer-dist --optimize-autoloader
+   npm ci || npm install
+   npm run build
+   $FORGE_PHP artisan migrate --force
+   $FORGE_PHP artisan storage:link
+   $FORGE_PHP artisan sr-crm:sync-custom-fields
+   $FORGE_PHP artisan filament:assets   # publica los assets registrados por el addon
+   $FORGE_PHP artisan filament:optimize
+
+   # Limpiamos optimizaciones previas en la nueva carpeta
+   $FORGE_PHP artisan optimize:clear
+
+   $ACTIVATE_RELEASE()
+
+   # Optimizamos una vez que el nuevo código ya está "vivo"
+   $FORGE_PHP artisan optimize
+
+   $FORGE_PHP artisan horizon:terminate
+   # Las colas las procesa Horizon, así que NO se usa $RESTART_QUEUES()
    ```
 
    - `migrate --force` crea las tablas del addon (projects, time_entries,
      project_templates…). Las migraciones van empaquetadas; no hay que publicarlas.
    - `sr-crm:sync-custom-fields` siembra/actualiza los custom fields en cada equipo.
+   - `horizon:terminate` es **obligatorio**: Horizon es un proceso de vida larga y, sin
+     esto, sus workers seguirían ejecutando el código y el entorno del despliegue
+     anterior. Supervisor lo relanza solo.
    - La config del addon usa la del paquete por defecto; solo si necesitas
      sobreescribirla: `php artisan vendor:publish --tag=srcrm-config`.
+
+   > ⚠️ **Reverb NO se reinicia aquí.** También es un proceso de vida larga, así que
+   > tras cambiar sus env vars hay que reiniciarlo a mano (Forge → Processes). Ver
+   > *Colas y tiempo real*.
+
+### Colas y tiempo real (Horizon + Reverb)
+
+El chat de IA **no funciona sin estas dos piezas**: el mensaje se procesa en un job y la
+respuesta se emite por WebSocket token a token. Si falta cualquiera de las dos, el usuario
+ve el chat colgado sin ningún error visible.
+
+**Procesos** (Forge → Site → Processes). Deben estar los dos corriendo:
+
+| Proceso | Comando | Para qué |
+|---------|---------|----------|
+| Horizon | `php artisan horizon` | Procesa TODAS las colas, incluida `chat` |
+| Reverb | `php artisan reverb:start --host=127.0.0.1 --port=8080` | Servidor WebSocket |
+
+**`QUEUE_CONNECTION=redis` es obligatorio.** Horizon solo consume la conexión `redis`
+(todos sus supervisores la fijan en `config/horizon.php`). Con `QUEUE_CONNECTION=database`
+—que es lo que trae `.env.example`— Horizon corre de adorno y **ningún job se ejecuta**.
+
+> ⚠️ El worker por defecto que crea Forge es `queue:work 'database'`: ese primer argumento
+> es la **conexión**, no la cola. Aunque se le pasara `redis`, sin `--queue` solo cogería
+> `default` y los mensajes del chat (cola `chat`) se quedarían encolados **para siempre, sin
+> error**. Con Horizon en marcha ese worker sobra: párale. Antes, comprueba que la tabla
+> `jobs` esté vacía, o lo que quede ahí no lo procesará nadie.
+
+La cola `chat` la sirve el `chat-supervisor` de `config/horizon.php`, con `timeout: 130`
+a propósito: por encima de los 120s de timeout del agente (`CrmAssistant`).
+
+**Env de Reverb.** Son *dos destinos distintos* y se confunden con facilidad:
+
+```env
+# Lo que usa el NAVEGADOR (público, vía nginx con TLS)
+REVERB_APP_ID=...            # los tres: generar, no dejar vacíos
+REVERB_APP_KEY=...
+REVERB_APP_SECRET=...
+REVERB_HOST=ws.crm.srjingles.com
+REVERB_PORT=443
+REVERB_SCHEME=https
+
+# Lo que usa el SERVIDOR para emitir (loopback al proceso local)
+BROADCAST_REVERB_HOST=127.0.0.1
+BROADCAST_REVERB_PORT=8080
+# SCHEME y VERIFY se autodetectan a http/false al ser loopback: no hace falta ponerlos
+```
+
+> ⚠️ **Nunca dejes las `BROADCAST_REVERB_*` en cadena vacía.** Un `""` NO es "sin definir":
+> anula el fallback de `config/broadcasting.php:5` y deja el host vacío ⇒ `MalformedUriException`
+> en cada emisión. O con valor, o borradas.
+
+**Nginx** debe proxyar el subdominio de Reverb a `127.0.0.1:8080` con upgrade de WebSocket, y
+el certificado SAN tiene que incluirlo. Se usa un subdominio dedicado para no pisar rutas de la
+app: Reverb sirve en `/app/{appKey}` y `/apps/{appId}/events`.
+
+**Trampa del build:** las `VITE_REVERB_*` (que el `.env` interpola de las `REVERB_*`) las
+**hornea Vite en el bundle** durante el `npm run build` del deploy. Si las cambias, el backend
+se entera al instante pero el navegador no: **hay que redesplegar**.
+
+### Claves de IA
+
+El chat necesita un proveedor configurado o devuelve 401:
+
+```env
+ANTHROPIC_API_KEY=sk-ant-...   # modelos Claude del selector + modelo de resumen
+
+# Opcional: Claude vía Google Vertex AI (facturación GCP + residencia UE).
+# Con esto el chat enruta Claude por Vertex y no hace falta ANTHROPIC_API_KEY.
+# SRCRM_VERTEX_ENABLED=true
+# SRCRM_VERTEX_PROJECT=...
+# SRCRM_VERTEX_LOCATION=eu
+# GOOGLE_APPLICATION_CREDENTIALS=/ruta/al/json-de-la-cuenta-de-servicio
+```
+
+> El deploy corre `php artisan optimize`, que **cachea la config**. Cambiar el `.env` en Forge
+> no surte efecto hasta que se reconstruye esa caché ⇒ **cualquier cambio de env exige
+> redesplegar** (o `php artisan optimize:clear && php artisan optimize` a mano).
 
 ### Dominios y paneles
 
