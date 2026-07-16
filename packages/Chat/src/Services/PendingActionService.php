@@ -74,6 +74,45 @@ final readonly class PendingActionService
     ];
 
     /**
+     * Seam de extensión para addons (p. ej. srjingles/sr-crm).
+     *
+     * Las constantes de arriba son el suelo del host; la config solo AÑADE a ellas, nunca
+     * quita. Un addon que aporta un módulo (Proyectos) registra aquí sus Actions y modelos
+     * desde su service provider para que sus tools de escritura puedan proponerse y aprobarse.
+     *
+     * Por qué esto NO debilita el allowlist: lo que se protege es que `action_class` y
+     * `_model_class` se PERSISTEN en la BD al proponer y, al aprobar, se instancian y ejecutan
+     * (`executeAction`, `resolveModelClass`) — sin allowlist eso sería ejecución de clase
+     * arbitraria. La config la fija el desarrollador en `register()`, en código: ni el modelo
+     * ni el usuario ni el contenido de la propuesta pueden influir en ella. Sigue siendo un
+     * conjunto cerrado decidido en tiempo de arranque, solo que compuesto de dos fuentes.
+     *
+     * @return list<class-string>
+     */
+    private function allowedActionClasses(): array
+    {
+        /** @var array<int, class-string> $extra */
+        $extra = config('chat.extra_allowed_action_classes', []);
+
+        return [...self::ALLOWED_ACTION_CLASSES, ...$extra];
+    }
+
+    /**
+     * Modelos que un addon puede aportar al protocolo de propuestas.
+     *
+     * @see self::allowedActionClasses() para el razonamiento de seguridad
+     *
+     * @return list<class-string<Model>>
+     */
+    private function allowedModelClasses(): array
+    {
+        /** @var array<int, class-string<Model>> $extra */
+        $extra = config('chat.extra_allowed_model_classes', []);
+
+        return [...self::ALLOWED_MODEL_CLASSES, ...$extra];
+    }
+
+    /**
      * @param  array<string, mixed>  $actionData
      * @param  array<string, mixed>  $displayData
      */
@@ -379,7 +418,7 @@ final readonly class PendingActionService
     private function makeBatchItemAction(PendingAction $pendingAction): object
     {
         throw_unless(
-            in_array($pendingAction->action_class, self::ALLOWED_ACTION_CLASSES, true),
+            in_array($pendingAction->action_class, $this->allowedActionClasses(), true),
             RuntimeException::class,
             'Action class not allowlisted',
         );
@@ -569,7 +608,7 @@ final readonly class PendingActionService
         $actionClass = $pendingAction->action_class;
 
         throw_unless(
-            in_array($actionClass, self::ALLOWED_ACTION_CLASSES, true),
+            in_array($actionClass, $this->allowedActionClasses(), true),
             RuntimeException::class,
             'Action class not allowlisted',
         );
@@ -630,7 +669,7 @@ final readonly class PendingActionService
     {
         $modelClass = $data['_model_class'] ?? null;
 
-        throw_if(! is_string($modelClass) || ! in_array($modelClass, self::ALLOWED_MODEL_CLASSES, true), RuntimeException::class, "Invalid model class: {$modelClass}");
+        throw_if(! is_string($modelClass) || ! in_array($modelClass, $this->allowedModelClasses(), true), RuntimeException::class, "Invalid model class: {$modelClass}");
 
         return $modelClass;
     }
