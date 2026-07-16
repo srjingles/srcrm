@@ -264,15 +264,24 @@ PROMPT;
     /**
      * Seam de extensión para addons (p. ej. srjingles/sr-crm).
      *
-     * Un addon empuja a config('chat.extra_instructions') el texto que le enseña al modelo
-     * los módulos que aporta (los del host los enumera el prompt de arriba, así que sin esto
-     * el modelo concluye que no existen). Va dentro del prompt ESTÁTICO a propósito: es fijo
-     * por despliegue, así que viaja en el prefijo cacheado igual que el resto. Sin addon, el
-     * default vacío lo deja idéntico.
+     * Un addon empuja a config('chat.extra_instructions.<su-clave>') el texto que le enseña al
+     * modelo los módulos que aporta (los del host los enumera el prompt de arriba, así que sin
+     * esto el modelo concluye que no existen). Va dentro del prompt ESTÁTICO a propósito: es
+     * fijo por despliegue, así que viaja en el prefijo cacheado igual que el resto. Sin addon,
+     * el array vacío lo deja idéntico.
+     *
+     * Es un mapa CON CLAVE, no una cadena, para que empujarlo sea idempotente: los addons lo
+     * hacen desde register(), que se ejecuta tanto al construir la caché de config como en cada
+     * petición posterior, así que un append acabaría duplicando el bloque.
      */
     private function extraInstructions(): string
     {
-        $extra = trim((string) config('chat.extra_instructions', ''));
+        $blocks = config('chat.extra_instructions', []);
+
+        $extra = trim(implode("\n\n", array_map(
+            static fn (mixed $block): string => trim((string) $block),
+            is_array($blocks) ? $blocks : [$blocks],
+        )));
 
         return $extra === '' ? '' : "\n\n".$extra;
     }
@@ -533,9 +542,13 @@ PROMPT;
      */
     public function tools(): array
     {
+        // Deduplicado defensivo: dos tools con el mismo nombre hacen que el proveedor rechace
+        // la petición entera con un 400, así que el chat no puede quedar a merced de que un
+        // addon empuje su clase dos veces (fácil de hacer: register() corre también al
+        // construir la caché de config, así que un append ingenuo duplica).
         return array_map(
             fn (string $class): Tool => $this->configureTool(resolve($class)),
-            $this->toolClasses(),
+            array_values(array_unique($this->toolClasses())),
         );
     }
 
