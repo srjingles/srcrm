@@ -13,13 +13,22 @@ use App\Models\User;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laravel\Ai\Contracts\Tool;
 use Laravel\Ai\Tools\Request;
+use Relaticle\Chat\Support\ChatEntities;
 use Relaticle\Chat\Support\LikePattern;
 
 final class SearchCrmTool implements Tool
 {
     public function description(): string
     {
-        return 'Search across all CRM entity types (companies, people, opportunities, tasks, notes) by keyword.';
+        $types = ['companies', 'people', 'opportunities', 'tasks', 'notes'];
+
+        // Las entidades de los addons se anuncian aquí para que el modelo sepa que la
+        // búsqueda global las cubre; si no, no las buscaría.
+        foreach (ChatEntities::all() as $entity) {
+            $types[] = $entity->key();
+        }
+
+        return 'Search across all CRM entity types ('.implode(', ', $types).') by keyword.';
     }
 
     public function schema(JsonSchema $schema): array
@@ -70,6 +79,11 @@ final class SearchCrmTool implements Tool
                 ->get(['id', 'title', 'created_at'])
                 ->toArray(),
         ];
+
+        // Entidades aportadas por addons (seam config('chat.extra_entities')).
+        foreach (ChatEntities::all() as $entity) {
+            $results[$entity->key()] = $entity->search($team, $query, $limit);
+        }
 
         return (string) json_encode($results, JSON_PRETTY_PRINT);
     }

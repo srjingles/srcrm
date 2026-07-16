@@ -14,6 +14,7 @@ use App\Models\Note;
 use App\Models\Opportunity;
 use App\Models\People;
 use App\Models\Task;
+use App\Models\Team;
 use App\Models\User;
 use Filament\Actions\EditAction;
 use Throwable;
@@ -64,13 +65,7 @@ final readonly class RecordReferenceResolver
 
     public function urlFor(string $entityType, string $recordId): ?string
     {
-        $authUser = auth()->user();
-
-        if (! $authUser instanceof User) {
-            return null;
-        }
-
-        $team = $authUser->currentTeam;
+        $team = $this->currentTeam();
 
         if ($team === null) {
             return null;
@@ -89,7 +84,8 @@ final readonly class RecordReferenceResolver
                     'tableAction' => EditAction::getDefaultName(),
                     'tableActionRecord' => $recordId,
                 ], panel: 'app', tenant: $team),
-                default => null,
+                // Entidades aportadas por addons (seam config('chat.extra_entities')).
+                default => ChatEntities::forType($entityType)?->urlFor($team, $recordId),
             };
         } catch (Throwable) {
             return null;
@@ -105,12 +101,30 @@ final readonly class RecordReferenceResolver
                 'opportunity' => Opportunity::query()->whereKey($recordId)->value('name'),
                 'task' => Task::query()->whereKey($recordId)->value('title'),
                 'note' => Note::query()->whereKey($recordId)->value('title'),
-                default => null,
+                // Entidades aportadas por addons (seam config('chat.extra_entities')).
+                default => $this->extraLabel($entityType, $recordId),
             };
         } catch (Throwable) {
             return null;
         }
 
         return is_string($label) && $label !== '' ? $label : null;
+    }
+
+    private function extraLabel(string $entityType, string $recordId): ?string
+    {
+        $team = $this->currentTeam();
+        $entity = ChatEntities::forType($entityType);
+
+        return $team !== null && $entity !== null
+            ? $entity->labelFor($team, $recordId)
+            : null;
+    }
+
+    private function currentTeam(): ?Team
+    {
+        $authUser = auth()->user();
+
+        return $authUser instanceof User ? $authUser->currentTeam : null;
     }
 }

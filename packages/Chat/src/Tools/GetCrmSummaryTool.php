@@ -9,10 +9,12 @@ use App\Models\Note;
 use App\Models\Opportunity;
 use App\Models\People;
 use App\Models\Task;
+use App\Models\Team;
 use App\Models\User;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laravel\Ai\Contracts\Tool;
 use Laravel\Ai\Tools\Request;
+use Relaticle\Chat\Support\ChatEntities;
 
 final class GetCrmSummaryTool implements Tool
 {
@@ -39,6 +41,7 @@ final class GetCrmSummaryTool implements Tool
                 'opportunities' => Opportunity::query()->whereBelongsTo($team)->count(),
                 'tasks' => Task::query()->whereBelongsTo($team)->count(),
                 'notes' => Note::query()->whereBelongsTo($team)->count(),
+                ...$this->extraCounts($team),
             ],
             'recent_activity' => [
                 'companies_this_week' => Company::query()->whereBelongsTo($team)->where('created_at', '>=', now()->startOfWeek())->count(),
@@ -48,5 +51,21 @@ final class GetCrmSummaryTool implements Tool
         ];
 
         return (string) json_encode($summary, JSON_PRETTY_PRINT);
+    }
+
+    /**
+     * Recuentos de las entidades que aportan los addons (seam config('chat.extra_entities')).
+     *
+     * @return array<string, int>
+     */
+    private function extraCounts(Team $team): array
+    {
+        $counts = [];
+
+        foreach (ChatEntities::all() as $entity) {
+            $counts[$entity->key()] = $entity->count($team);
+        }
+
+        return $counts;
     }
 }
