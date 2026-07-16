@@ -173,7 +173,7 @@ final class CrmAssistant implements Agent, Conversational, HasMiddleware, HasPro
      */
     public function staticInstructions(): string
     {
-        return <<<'PROMPT'
+        $prompt = <<<'PROMPT'
 You are the Relaticle CRM Assistant, a helpful AI that helps users manage their CRM data.
 
 ## Capabilities
@@ -257,6 +257,24 @@ Read tool results include a `url` field per record. When you name a record in pr
 - Only link records that actually appeared in tool results this turn -- never invent or guess a url.
 - If a record has no url (null), refer to it by name only without a link.
 PROMPT;
+
+        return $prompt.$this->extraInstructions();
+    }
+
+    /**
+     * Seam de extensión para addons (p. ej. srjingles/sr-crm).
+     *
+     * Un addon empuja a config('chat.extra_instructions') el texto que le enseña al modelo
+     * los módulos que aporta (los del host los enumera el prompt de arriba, así que sin esto
+     * el modelo concluye que no existen). Va dentro del prompt ESTÁTICO a propósito: es fijo
+     * por despliegue, así que viaja en el prefijo cacheado igual que el resto. Sin addon, el
+     * default vacío lo deja idéntico.
+     */
+    private function extraInstructions(): string
+    {
+        $extra = trim((string) config('chat.extra_instructions', ''));
+
+        return $extra === '' ? '' : "\n\n".$extra;
     }
 
     /**
@@ -531,10 +549,20 @@ PROMPT;
     }
 
     /**
+     * Seam de extensión para addons (p. ej. srjingles/sr-crm).
+     *
+     * Un addon puede aportar las tools de sus propios módulos sin tocar esta clase ni
+     * sustituirla: empuja sus clases a config('chat.extra_tools') desde su service provider
+     * (en runtime) y aquí se fusionan con las nativas. Espejo del seam de MCP
+     * (RelaticleServer::boot()). Sin addon, el default vacío lo deja idéntico.
+     *
      * @return list<class-string<Tool>>
      */
     private function toolClasses(): array
     {
+        /** @var array<int, class-string<Tool>> $extraTools */
+        $extraTools = config('chat.extra_tools', []);
+
         return [
             // Read tools
             ChatListCompaniesTool::class,
@@ -575,6 +603,9 @@ PROMPT;
             CreateCustomFieldTool::class,
             UpdateCustomFieldTool::class,
             AddCustomFieldOptionsTool::class,
+
+            // Tools de módulos aportados por addons.
+            ...$extraTools,
         ];
     }
 
