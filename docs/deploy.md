@@ -104,21 +104,24 @@ También añade los assets publicados (`public/{css,js}/srjingles/`) al
    $FORGE_PHP artisan optimize
 
    $FORGE_PHP artisan horizon:terminate
+   $FORGE_PHP artisan reverb:restart
    # Las colas las procesa Horizon, así que NO se usa $RESTART_QUEUES()
    ```
 
    - `migrate --force` crea las tablas del addon (projects, time_entries,
      project_templates…). Las migraciones van empaquetadas; no hay que publicarlas.
    - `sr-crm:sync-custom-fields` siembra/actualiza los custom fields en cada equipo.
-   - `horizon:terminate` es **obligatorio**: Horizon es un proceso de vida larga y, sin
-     esto, sus workers seguirían ejecutando el código y el entorno del despliegue
-     anterior. Supervisor lo relanza solo.
+   - `horizon:terminate` y `reverb:restart` son **obligatorios**: los dos son procesos de
+     vida larga y, sin esto, seguirían con el código y el entorno del despliegue anterior.
+     Ambos comandos solo dejan una marca; el proceso sale con elegancia y Supervisor lo
+     relanza. Van **después** de `$ACTIVATE_RELEASE()`, para que reinicien contra el código
+     nuevo.
    - La config del addon usa la del paquete por defecto; solo si necesitas
      sobreescribirla: `php artisan vendor:publish --tag=srcrm-config`.
 
-   > ⚠️ **Reverb NO se reinicia aquí.** También es un proceso de vida larga, así que
-   > tras cambiar sus env vars hay que reiniciarlo a mano (Forge → Processes). Ver
-   > *Colas y tiempo real*.
+   > ⚠️ Olvidar `reverb:restart` es sutil y caro: el proceso conserva las `REVERB_APP_*` de
+   > cuando arrancó, así que al recibir el app id nuevo responde **404 "No matching
+   > application for ID"** y el chat muere en cada emisión. Pasó en producción.
 
 ### Colas y tiempo real (Horizon + Reverb)
 
@@ -132,6 +135,9 @@ ve el chat colgado sin ningún error visible.
 |---------|---------|----------|
 | Horizon | `php artisan horizon` | Procesa TODAS las colas, incluida `chat` |
 | Reverb | `php artisan reverb:start --host=127.0.0.1 --port=8080` | Servidor WebSocket |
+
+Los dos son de vida larga y **el deploy los reinicia** (`horizon:terminate`, `reverb:restart`).
+Si cambias sus env vars fuera de un despliegue, reinícialos o seguirán con la config vieja.
 
 **`QUEUE_CONNECTION=redis` es obligatorio.** Horizon solo consume la conexión `redis`
 (todos sus supervisores la fijan en `config/horizon.php`). Con `QUEUE_CONNECTION=database`
