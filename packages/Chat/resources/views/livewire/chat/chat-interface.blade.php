@@ -1372,13 +1372,20 @@ Alpine.data('chatInterface', (initialConversationId, sendUrl, initialMessage, in
         this.channel.conversationId = conversationId;
         this.channel.subscribed = false;
 
+        // Se captura el canal en vez de leer this.channel al dispararse: estos callbacks
+        // sobreviven al canal que los creó. Si para entonces hubo unsubscribe(), this.channel
+        // es null y peta; y si ya hay OTRO canal, se le marcaría a él el subscribed -- pisando
+        // en silencio el estado del canal nuevo. Con la referencia capturada, cada callback
+        // solo toca el suyo, y si ese canal ya se descartó, da igual.
+        const channel = this.channel;
+
         const readyPromise = new Promise((resolve) => {
-            const pusherChannel = this.channel.subscription ?? this.channel;
+            const pusherChannel = channel.subscription ?? channel;
             let settled = false;
             const finish = (confirmed) => {
                 if (settled) return;
                 settled = true;
-                this.channel.subscribed = confirmed;
+                channel.subscribed = confirmed;
                 resolve(confirmed);
             };
             if (typeof pusherChannel.bind === 'function') {
