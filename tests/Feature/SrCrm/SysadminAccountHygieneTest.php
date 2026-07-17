@@ -83,6 +83,51 @@ test('the cancel action only shows up on accounts that are actually scheduled', 
         ->assertActionHidden(TestAction::make('cancelDeletion')->table($healthy));
 });
 
+test('deleting permanently purges the account for real', function () {
+    $doomed = User::factory()->withPersonalTeam()->create([
+        'email' => 'purgame@example.com',
+        'scheduled_deletion_at' => now()->addDays(30),
+    ]);
+    $personalTeam = $doomed->ownedTeams()->first();
+
+    livewire(ListAccountStates::class)
+        ->callAction(TestAction::make('purge')->table($doomed));
+
+    // Se delega en DeletesUsers (la acción del host que usa el cron de purga), así que se lleva
+    // también el equipo personal: un delete a pelo lo habría dejado huérfano.
+    expect(User::query()->whereKey($doomed->getKey())->exists())->toBeFalse()
+        ->and(Team::query()->whereKey($personalTeam->getKey())->exists())->toBeFalse();
+});
+
+test('it refuses to purge an account that owns a workspace with other members', function () {
+    // ScheduleUserDeletion tiene este guard, pero DeleteUser NO: llamándolo directamente nos
+    // cargaríamos el espacio de trabajo de otra gente. Y el estado puede haber cambiado desde que
+    // se programó el borrado.
+    $owner = User::factory()->withPersonalTeam()->create([
+        'scheduled_deletion_at' => now()->addDays(30),
+    ]);
+    $shared = Team::factory()->create([
+        'user_id' => $owner->id,
+        'name' => 'Equipo compartido',
+        'personal_team' => false,
+    ]);
+    $shared->users()->attach(User::factory()->create(), ['role' => 'editor']);
+
+    livewire(ListAccountStates::class)
+        ->callAction(TestAction::make('purge')->table($owner));
+
+    expect(User::query()->whereKey($owner->getKey())->exists())->toBeTrue()
+        ->and(Team::query()->whereKey($shared->getKey())->exists())->toBeTrue();
+});
+
+test('delete permanently only shows up on accounts already scheduled', function () {
+    // No es un "borrar usuario" genérico: es saltarse los 30 días de gracia de uno ya programado.
+    $healthy = User::factory()->withPersonalTeam()->create(['scheduled_deletion_at' => null]);
+
+    livewire(ListAccountStates::class)
+        ->assertActionHidden(TestAction::make('purge')->table($healthy));
+});
+
 /*
  | El bucle que motivó todo esto. Estos dos son peticiones HTTP del panel de la APP, así que hay que
  | deshacer a mano el contexto que deja el beforeEach para el sysadmin; si no, fallan por motivos que
