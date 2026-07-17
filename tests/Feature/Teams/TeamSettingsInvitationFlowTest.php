@@ -78,6 +78,28 @@ test('admin can resend a pending invitation', function () {
     Mail::assertSent(TeamInvitationMail::class, fn ($mail) => $mail->hasTo('pending@example.com'));
 });
 
+test('resending an expired invitation revives it instead of mailing a dead link', function () {
+    Mail::fake();
+
+    $invitation = TeamInvitation::factory()->create([
+        'team_id' => $this->team->id,
+        'email' => 'expired@example.com',
+        'expires_at' => now()->subDays(3),
+    ]);
+
+    expect($invitation->isExpired())->toBeTrue();
+
+    livewire(PendingTeamInvitations::class, ['team' => $this->team])
+        ->callAction(TestAction::make('resendTeamInvitation')->table($invitation));
+
+    // Sin renovar la caducidad, el enlace reenviado lo rechazaría AcceptTeamInvitationController y
+    // el invitado vería "invitación caducada": reenviar no servía de nada y no había forma de
+    // revivirla desde el panel, solo revocar y volver a invitar.
+    expect($invitation->fresh()->isExpired())->toBeFalse();
+
+    Mail::assertSent(TeamInvitationMail::class, fn ($mail) => $mail->hasTo('expired@example.com'));
+});
+
 test('admin can revoke a pending invitation', function () {
     $invitation = TeamInvitation::factory()->create([
         'team_id' => $this->team->id,
