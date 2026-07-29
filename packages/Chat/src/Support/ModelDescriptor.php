@@ -41,8 +41,10 @@ final readonly class ModelDescriptor
 
     /**
      * Servable on this install: tool-capable, has a model tag, and its provider
-     * connection is configured. Cloud providers need a key; self-hosted providers
-     * need a base URL.
+     * connection is configured. Self-hosted providers need a base URL; cloud
+     * providers need a credential, which is an API key for the stock drivers but
+     * may instead be a service-account credential for a provider registered by an
+     * addon (Claude via Google Vertex AI authenticates that way — no API key).
      */
     public function isAvailable(): bool
     {
@@ -53,9 +55,12 @@ final readonly class ModelDescriptor
         /** @var array<string, mixed> $connection */
         $connection = config("ai.providers.{$this->provider}", []);
 
-        return $this->selfHosted
-            ? filled($connection['url'] ?? null)
-            : filled($connection['key'] ?? null);
+        if ($this->selfHosted) {
+            return filled($connection['url'] ?? null);
+        }
+
+        return filled($connection['key'] ?? null)
+            || filled($connection['credentials'] ?? null);
     }
 
     public function allowedForPlan(Plan $plan): bool

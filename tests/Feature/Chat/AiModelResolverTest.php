@@ -6,8 +6,9 @@ use App\Enums\Plan;
 use App\Models\User;
 use Relaticle\Chat\Services\AiModelResolver;
 use Relaticle\Chat\Services\ModelRegistry;
+use Relaticle\Chat\Support\ModelDescriptor;
 
-mutates(AiModelResolver::class, ModelRegistry::class);
+mutates(AiModelResolver::class, ModelRegistry::class, ModelDescriptor::class);
 
 it('falls back to Sonnet when the users preference is not allowed by their plan', function (): void {
     $user = User::factory()->withPersonalTeam()->create();
@@ -164,4 +165,45 @@ it('throws a clear error when no chat model is configured', function (): void {
 
     expect(fn (): array => $resolver->resolve($user))
         ->toThrow(RuntimeException::class, 'No chat model is configured');
+});
+
+// Seam para proveedores registrados por un addon que no se autentican con API key.
+// El addon srjingles/sr-crm registra 'vertex' (Claude a traves de Google Cloud, con
+// credenciales de service account) y reapunta ahi los modelos Claude: en produccion
+// no hay ANTHROPIC_API_KEY porque la facturacion va por GCP.
+it('serves a cloud model whose provider authenticates by credentials instead of an API key', function (): void {
+    config()->set('ai.providers.anthropic.key', null);
+    config()->set('ai.providers.vertex', [
+        'driver' => 'vertex',
+        'project_id' => 'p',
+        'location' => 'eu',
+        'credentials' => '/srv/secrets/service-account.json',
+    ]);
+    config()->set('chat.models.0.provider', 'vertex');
+    config()->set('chat.auto_chain', ['claude-sonnet']);
+    app()->forgetInstance(ModelRegistry::class);
+
+    $user = User::factory()->withPersonalTeam()->create();
+
+    $resolved = resolve(AiModelResolver::class)->resolve($user, 'auto');
+
+    expect($resolved['provider'])->toBe('vertex');
+    expect($resolved['model'])->toBe('claude-sonnet-4-6');
+});
+
+it('does not serve a cloud model whose provider has neither key nor credentials', function (): void {
+    config()->set('ai.providers.anthropic.key', null);
+    config()->set('ai.providers.vertex', ['driver' => 'vertex', 'project_id' => 'p', 'location' => 'eu']);
+    config()->set('chat.models.0.provider', 'vertex');
+    config()->set('chat.models.6.model', null);
+    app()->forgetInstance(ModelRegistry::class);
+
+    $user = User::factory()->withPersonalTeam()->create();
+    $user->currentTeam->forceFill(['plan' => Plan::Pro])->save();
+
+    // Sin credencial no es servible, asi que una peticion explicita de ese modelo
+    // cae al auto_chain en vez de intentar una llamada que no puede autenticarse.
+    $resolved = resolve(AiModelResolver::class)->resolve($user, 'claude-sonnet');
+
+    expect($resolved['provider'])->toBe('openai');
 });
