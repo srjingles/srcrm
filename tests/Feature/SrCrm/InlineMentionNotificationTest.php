@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Models\Note;
 use App\Models\User;
 use Filament\Facades\Filament;
+use SrJingles\SrCrm\CustomFields\Forms\MentionRichEditorComponent;
 
 /*
  | @menciones inline (addon srjingles/sr-crm): al guardar el valor de un campo
@@ -92,7 +93,7 @@ it('resuelve el nombre de las menciones guardadas al reabrir el editor', functio
     $bodyField = Note::factory()->for($this->team)->create()
         ->customFields()->where('code', 'body')->firstOrFail();
 
-    $editor = app(\SrJingles\SrCrm\CustomFields\Forms\MentionRichEditorComponent::class)->create($bodyField);
+    $editor = app(MentionRichEditorComponent::class)->create($bodyField);
 
     // Extraemos el MentionProvider configurado y comprobamos que resuelve id -> nombre
     // (es lo que Filament usa al reabrir para re-pintar el chip de la mención guardada).

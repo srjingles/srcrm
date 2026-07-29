@@ -17,6 +17,7 @@ use App\Models\Task;
 use App\Models\Team;
 use App\Models\User;
 use Filament\Actions\EditAction;
+use Relaticle\Chat\Contracts\ChatEntity;
 use Throwable;
 
 final readonly class RecordReferenceResolver
@@ -67,7 +68,7 @@ final readonly class RecordReferenceResolver
     {
         $team = $this->currentTeam();
 
-        if ($team === null) {
+        if (! $team instanceof Team) {
             return null;
         }
 
@@ -116,7 +117,7 @@ final readonly class RecordReferenceResolver
         $team = $this->currentTeam();
         $entity = ChatEntities::forType($entityType);
 
-        return $team !== null && $entity !== null
+        return $team instanceof Team && $entity instanceof ChatEntity
             ? $entity->labelFor($team, $recordId)
             : null;
     }

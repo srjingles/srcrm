@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Relaticle\Chat\Services\Tools;
 
+use App\Contracts\CustomFields\DynamicChoiceType;
 use App\Models\CustomField;
 use App\Models\Team;
 use App\Support\CustomFields\DynamicChoices;
@@ -83,7 +84,7 @@ final readonly class CustomFieldsSchemaDescriber
     {
         $provider = DynamicChoices::forField($field);
 
-        if ($provider !== null) {
+        if ($provider instanceof DynamicChoiceType) {
             return array_values($provider->options($teamId));
         }
 

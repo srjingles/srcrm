@@ -2,12 +2,15 @@
 
 declare(strict_types=1);
 
+use App\Actions\Jetstream\CancelUserDeletion;
 use App\Models\Team;
+use App\Models\TeamInvitation;
 use App\Models\User;
 use Filament\Actions\Testing\TestAction;
 use Filament\Facades\Filament;
-use SrJingles\SrCrm\Filament\Sysadmin\Resources\AccountStateResource\Pages\ListAccountStates;
+use Illuminate\Support\Facades\URL;
 use Relaticle\SystemAdmin\Models\SystemAdministrator;
+use SrJingles\SrCrm\Filament\Sysadmin\Resources\AccountStateResource\Pages\ListAccountStates;
 
 /*
  | Estado de las cuentas en el UserResource del sysadmin (addon srjingles/sr-crm).
@@ -150,13 +153,13 @@ function invitedAccountScheduledForDeletion(): array
         'scheduled_deletion_at' => now()->addDays(30),
     ]);
 
-    $invitation = App\Models\TeamInvitation::factory()->create([
+    $invitation = TeamInvitation::factory()->create([
         'team_id' => $team->id,
         'email' => $user->email,
         'role' => 'editor',
     ]);
 
-    $acceptUrl = Illuminate\Support\Facades\URL::signedRoute(
+    $acceptUrl = URL::signedRoute(
         'team-invitations.accept',
         ['invitation' => $invitation],
     );
@@ -178,7 +181,7 @@ test('cancelling the deletion lets the account accept its invitation', function 
 
     Filament::setCurrentPanel(Filament::getPanel('app'));
 
-    resolve(App\Actions\Jetstream\CancelUserDeletion::class)->cancel($user);
+    resolve(CancelUserDeletion::class)->cancel($user);
 
     $this->actingAs($user->fresh(), 'web')->get($acceptUrl)->assertRedirect();
 

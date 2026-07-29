@@ -2,10 +2,12 @@
 
 declare(strict_types=1);
 
+use App\Filament\Pages\Auth\Register;
 use App\Models\Team;
 use App\Models\TeamInvitation;
 use App\Models\User;
 use Filament\Facades\Filament;
+use Illuminate\Contracts\Http\Kernel;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\Support\Facades\URL;
 use SrJingles\SrCrm\Http\Middleware\BlockRegistration;
@@ -106,7 +108,7 @@ test('an invited user signs up with a password and ends up inside the team', fun
     $this->get($acceptUrl)->assertRedirect(Filament::getPanel('app')->getRegistrationUrl());
 
     // 2. Crea su contraseña.
-    livewire(App\Filament\Pages\Auth\Register::class)
+    livewire(Register::class)
         ->fillForm([
             'name' => 'Brand New',
             'email' => 'brandnew-invited@gmail.com',
@@ -138,7 +140,7 @@ test('an invited user signs up with a password and ends up inside the team', fun
  | al login a todo el mundo, invitados incluidos: el alta por invitación nunca funcionó en producción.
  */
 test('the registration gate runs after StartSession, never in the global stack', function () {
-    $kernel = app(Illuminate\Contracts\Http\Kernel::class);
+    $kernel = app(Kernel::class);
     $reflection = new ReflectionClass($kernel);
 
     $global = $reflection->getProperty('middleware');

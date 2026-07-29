@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use App\Filament\Resources\CompanyResource\Pages\ListCompanies;
+use App\Filament\Resources\TaskResource\Pages\ManageTasks;
 use App\Models\Company;
 use App\Models\Note;
 use App\Models\Task;
@@ -73,21 +75,21 @@ it('supports() solo habilita la acción en Tarea, Proyecto y Nota', function ():
 it('inyecta la acción, visible, en la tabla de Tareas del host', function (): void {
     $task = Task::factory()->for($this->team)->create(['title' => 'X']);
 
-    Livewire::test(\App\Filament\Resources\TaskResource\Pages\ManageTasks::class)
+    Livewire::test(ManageTasks::class)
         ->assertTableActionVisible('srcrm_notify_teammates', $task);
 });
 
 it('mantiene la acción oculta en un recurso no soportado (Company)', function (): void {
     $company = Company::factory()->for($this->team)->create();
 
-    Livewire::test(\App\Filament\Resources\CompanyResource\Pages\ListCompanies::class)
+    Livewire::test(ListCompanies::class)
         ->assertTableActionHidden('srcrm_notify_teammates', $company);
 });
 
 it('al ejecutar la acción notifica al miembro seleccionado', function (): void {
     $task = Task::factory()->for($this->team)->create(['title' => 'X']);
 
-    Livewire::test(\App\Filament\Resources\TaskResource\Pages\ManageTasks::class)
+    Livewire::test(ManageTasks::class)
         ->callTableAction('srcrm_notify_teammates', $task, ['user_ids' => [(string) $this->member->getKey()]])
         ->assertHasNoTableActionErrors();
 

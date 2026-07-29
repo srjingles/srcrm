@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Rules;
 
+use App\Contracts\CustomFields\DynamicChoiceType;
 use App\Models\CustomField;
 use App\Support\CustomFields\DynamicChoices;
 use Closure;
@@ -153,7 +154,7 @@ final readonly class ValidCustomFields implements ValidationRule
 
         $provider = DynamicChoices::forField($customField);
 
-        $optionIds = $provider !== null
+        $optionIds = $provider instanceof DynamicChoiceType
             ? array_keys($provider->options($this->tenantId))
             : $customField->options->pluck('id')->all();
 

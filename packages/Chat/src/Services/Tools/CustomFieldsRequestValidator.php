@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Relaticle\Chat\Services\Tools;
 
+use App\Contracts\CustomFields\DynamicChoiceType;
 use App\Models\CustomField;
 use App\Models\User;
 use App\Rules\ValidCustomFields;
@@ -164,7 +165,7 @@ final readonly class CustomFieldsRequestValidator
     {
         $provider = DynamicChoices::forField($field);
 
-        if ($provider !== null) {
+        if ($provider instanceof DynamicChoiceType) {
             /** @var SupportCollection<string, int|string> */
             return collect($provider->options($teamId))->flip();
         }
