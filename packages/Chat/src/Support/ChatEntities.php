@@ -11,7 +11,7 @@ use Relaticle\Chat\Contracts\ChatEntity;
  *
  * @see ChatEntity
  */
-final class ChatEntities
+final readonly class ChatEntities
 {
     /**
      * @return list<ChatEntity>

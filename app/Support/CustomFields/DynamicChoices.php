@@ -13,7 +13,7 @@ use Relaticle\CustomFields\Models\CustomField;
  *
  * @see DynamicChoiceType
  */
-final class DynamicChoices
+final readonly class DynamicChoices
 {
     /**
      * El proveedor del campo, o null si no aplica.
