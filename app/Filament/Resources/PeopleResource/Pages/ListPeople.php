@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\PeopleResource\Pages;
 
+use App\Filament\Concerns\PersistsTableColumns;
 use App\Filament\Exports\PeopleExporter;
 use App\Filament\Resources\PeopleResource;
 use Asmit\ResizedColumn\HasResizableColumn;
@@ -22,6 +23,7 @@ final class ListPeople extends ListRecords
 {
     use HasResizableColumn;
     use InteractsWithCustomFields;
+    use PersistsTableColumns;
 
     protected static string $resource = PeopleResource::class;
 

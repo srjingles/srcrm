@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\CompanyResource\RelationManagers;
 
+use App\Filament\Concerns\PersistsTableColumns;
 use App\Filament\Resources\NoteResource\Forms\NoteForm;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\AttachAction;
@@ -22,6 +23,8 @@ use Filament\Tables\Table;
 
 final class NotesRelationManager extends RelationManager
 {
+    use PersistsTableColumns;
+
     protected static string $relationship = 'notes';
 
     protected static string|\BackedEnum|null $icon = 'heroicon-o-document-text';

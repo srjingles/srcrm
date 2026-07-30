@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources\OpportunityResource\Pages;
 
 use App\Filament\Concerns\HasBoardViewSwitcher;
+use App\Filament\Concerns\PersistsTableColumns;
 use App\Filament\Exports\OpportunityExporter;
 use App\Filament\Resources\OpportunityResource;
 use Asmit\ResizedColumn\HasResizableColumn;
@@ -24,6 +25,7 @@ final class ListOpportunities extends ListRecords
     use HasBoardViewSwitcher;
     use HasResizableColumn;
     use InteractsWithCustomFields;
+    use PersistsTableColumns;
 
     protected static string $resource = OpportunityResource::class;
 

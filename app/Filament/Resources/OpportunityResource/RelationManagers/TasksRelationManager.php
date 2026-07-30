@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\OpportunityResource\RelationManagers;
 
+use App\Filament\Concerns\PersistsTableColumns;
 use App\Filament\Resources\TaskResource\Forms\TaskForm;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\AttachAction;
@@ -23,6 +24,8 @@ use Relaticle\CustomFields\Facades\CustomFields;
 
 final class TasksRelationManager extends RelationManager
 {
+    use PersistsTableColumns;
+
     protected static string $relationship = 'tasks';
 
     protected static string|\BackedEnum|null $icon = 'heroicon-o-check-circle';

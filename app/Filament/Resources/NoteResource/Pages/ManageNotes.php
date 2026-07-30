@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\NoteResource\Pages;
 
+use App\Filament\Concerns\PersistsTableColumns;
 use App\Filament\Exports\NoteExporter;
 use App\Filament\Resources\NoteResource;
 use Asmit\ResizedColumn\HasResizableColumn;
@@ -22,6 +23,7 @@ final class ManageNotes extends ManageRecords
 {
     use HasResizableColumn;
     use InteractsWithCustomFields;
+    use PersistsTableColumns;
 
     protected static string $resource = NoteResource::class;
 
