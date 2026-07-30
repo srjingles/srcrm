@@ -19,6 +19,8 @@ use App\Models\People;
 use App\Models\Task;
 use App\Models\User;
 use Filament\Facades\Filament;
+use Illuminate\Database\Events\QueryExecuted;
+use Illuminate\Support\Facades\DB;
 
 beforeEach(function (): void {
     $this->user = User::factory()->withTeam()->create();
@@ -42,7 +44,40 @@ it('renders the :dataset relation manager with multiple records', function (stri
         'ownerRecord' => $ownerRecord,
         'pageClass' => $pageClass,
     ])->assertOk();
-})->with([
+})->with('crm relation managers');
+
+/**
+ * Siete relation managers pintan columnas de campos personalizados (las meten con
+ * `...CustomFields::table()->forModel(...)->columns()` en su `table()`) y ninguno usa
+ * `InteractsWithCustomFields`, que es quien hace el `with('customFieldValues...')` en los
+ * listados principales. Parecía un N+1 de libro, y no lo es: Filament precarga por su
+ * cuenta las relaciones que sus columnas necesitan, y la carga sale en UNA consulta
+ * agrupada (`where entity_id in (...)`) para todas las filas.
+ *
+ * El test se queda como red: si alguien toca esas columnas o el modo en que se resuelven
+ * y se vuelve a una consulta por fila, aquí salta. Medido: 1 consulta con 4 registros.
+ */
+it('no consulta los campos personalizados fila a fila en el relation manager :dataset', function (string $relationManager, Closure $setUp): void {
+    [$ownerRecord, $pageClass] = $setUp($this->user, $this->team);
+
+    $queries = 0;
+
+    DB::listen(function (QueryExecuted $query) use (&$queries): void {
+        if (str_contains($query->sql, 'custom_field_values')) {
+            $queries++;
+        }
+    });
+
+    livewire($relationManager, [
+        'ownerRecord' => $ownerRecord,
+        'pageClass' => $pageClass,
+    ])->assertOk();
+
+    // Con eager loading basta una consulta para todas las filas; sin él sale una por fila.
+    expect($queries)->toBeLessThanOrEqual(1);
+})->with('crm relation managers');
+
+dataset('crm relation managers', [
     'company people' => [
         PeopleRelationManager::class,
         function (User $user, $team): array {
