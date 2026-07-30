@@ -29,6 +29,7 @@ use Relaticle\CustomFields\Data\CustomFieldSettingsData;
 use Relaticle\CustomFields\Enums\CustomFieldSectionType;
 use Relaticle\CustomFields\Models\CustomField;
 use Relaticle\CustomFields\Models\CustomFieldOption;
+use Relaticle\CustomFields\Services\TenantContextService;
 use Relaticle\OnboardSeed\OnboardSeeder;
 
 final readonly class CreateTeamCustomFields
@@ -53,12 +54,27 @@ final readonly class CreateTeamCustomFields
 
         $this->migrator->setTenantId($team->id);
 
-        DB::transaction(function (): void {
-            foreach (self::MODEL_ENUM_MAP as $modelClass => $enumClass) {
-                foreach ($enumClass::cases() as $enum) {
-                    $this->createCustomField($modelClass, $enum);
+        // DIVERGENCIA CON UPSTREAM — ver docs/upstream-divergences.md
+        //
+        // `setTenantId()` solo informa al migrador. Las consultas Eloquent que este hace por
+        // debajo (p. ej. el updateOrCreate de secciones) se scopan por OTRA cosa: el contexto
+        // ambiente de TenantContextService. Si al crear un equipo ese contexto apunta a otro
+        // —un usuario que ya está dentro del equipo A y crea el equipo B, que es el caso
+        // normal— la búsqueda mira en el equipo equivocado, no encuentra la fila, la inserta
+        // y choca con custom_field_sections_entity_type_code_tenant_id_unique. Un 500 al
+        // crear el segundo equipo.
+        //
+        // Es exactamente lo que exige la regla de custom fields de CLAUDE.md: todo camino de
+        // escritura que no sea una petición del panel ni pase por SetApiTeamContext debe
+        // fijar el contexto de tenant. Este listener no lo hacía.
+        TenantContextService::withTenant($team->id, function (): void {
+            DB::transaction(function (): void {
+                foreach (self::MODEL_ENUM_MAP as $modelClass => $enumClass) {
+                    foreach ($enumClass::cases() as $enum) {
+                        $this->createCustomField($modelClass, $enum);
+                    }
                 }
-            }
+            });
         });
 
         if ($team->isPersonalTeam() && Feature::active(OnboardSeed::class)) {

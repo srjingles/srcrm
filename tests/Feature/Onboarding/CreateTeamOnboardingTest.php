@@ -21,6 +21,8 @@ use App\Models\User;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\ValidationException;
 use Laravel\Pennant\Feature;
+use Relaticle\CustomFields\Models\CustomFieldSection;
+use Relaticle\CustomFields\Services\TenantContextService;
 use Relaticle\OnboardSeed\OnboardSeedManager;
 
 mutates(CreateTeam::class, CreateTeamAction::class, OnboardSeedManager::class, CreateTeamCustomFields::class);
@@ -712,4 +714,44 @@ it('allows empty onboarding context for use cases without sub-options', function
 
     expect($team->slug)->toBe('other-use-case')
         ->and($team->onboarding_use_case)->toBe(OnboardingUseCase::Other);
+});
+
+/*
+ | Regresión: crear un segundo equipo desde dentro de otro.
+ |
+ | CreateTeamCustomFields solo llamaba a setTenantId(), que informa al migrador pero NO al
+ | contexto ambiente de TenantContextService, que es por donde se scopan las consultas
+ | Eloquent que el migrador hace por debajo. Con las secciones de campos personalizados
+ | activas (las enciende el addon), la búsqueda de la sección miraba en el equipo
+ | equivocado, no la encontraba y la insertaba de nuevo: clave duplicada y 500 al crear el
+ | segundo equipo. Ver docs/upstream-divergences.md.
+ |
+ | El caso normal es justo éste: un usuario que ya está trabajando en un equipo crea otro.
+ */
+it('crea un segundo equipo aunque el contexto de tenant apunte a otro', function (): void {
+    $user = User::factory()->withTeam()->create();
+    $this->actingAs($user);
+
+    // Lo que deja cualquier petición del panel: el contexto apuntando al equipo actual.
+    TenantContextService::setTenantId($user->currentTeam->getKey());
+
+    $team = resolve(CreateTeamAction::class)->create($user, [
+        'name' => 'Segundo Equipo',
+        'slug' => 'segundo-equipo',
+        'onboarding_use_case' => OnboardingUseCase::Other->value,
+    ]);
+
+    expect($team->slug)->toBe('segundo-equipo');
+
+    // Y los campos del equipo nuevo son suyos, no del contexto anterior.
+    $sections = CustomFieldSection::query()
+        ->withoutGlobalScopes()
+        ->where('tenant_id', $team->getKey())
+        ->pluck('code');
+
+    expect($sections)->not->toBeEmpty()
+        ->and(CustomField::query()->withoutGlobalScopes()
+            ->where('tenant_id', $team->getKey())
+            ->whereNull('custom_field_section_id')
+            ->count())->toBe(0);
 });

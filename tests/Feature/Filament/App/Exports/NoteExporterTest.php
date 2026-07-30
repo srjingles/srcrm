@@ -26,6 +26,11 @@ beforeEach(function () {
     Event::fake()->except([
         TeamCreated::class,
         'eloquent.creating: App\\Models\\Team',
+        // El addon agrupa los campos en secciones y su observer las asigna en `creating`.
+        // Sin esta excepción el fake se lo traga, el campo nace sin sección y —con
+        // SYSTEM_SECTIONS activa— queda invisible para el ORM. Ver
+        // docs/upstream-divergences.md.
+        'eloquent.creating: App\\Models\\CustomField',
     ]);
 
     $this->team = Team::factory()->create();

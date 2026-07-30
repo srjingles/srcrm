@@ -17,6 +17,11 @@ Por qué `production` separada: `srcrm-seams` se rebasea (reescribe historia), l
 que es incompatible con una rama de despliegue estable. `production` aísla a Forge
 de esos force-push.
 
+> **Al rebasear, repasa [`upstream-divergences.md`](upstream-divergences.md).** La
+> norma es no tocar el host y resolverlo todo desde el addon; ahí están anotadas las
+> excepciones deliberadas, con su test de regresión y cómo deshacerlas si upstream
+> las hace innecesarias.
+
 ## Entorno de desarrollo (cableado del addon)
 
 En local el addon se usa por **symlink**, no desde GitHub, vía el script del addon:
