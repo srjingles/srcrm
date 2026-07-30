@@ -235,10 +235,10 @@ test('reserved slugs cover all top-level route segments', function () {
         ->values();
 
     $missing = $firstSegments->reject(
-        fn (string $segment) => in_array($segment, Team::RESERVED_SLUGS, true)
+        fn (string $segment) => in_array($segment, Team::reservedSlugs(), true)
     );
 
     expect($missing->toArray())->toBeEmpty(
-        'These route segments are missing from Team::RESERVED_SLUGS: '.$missing->implode(', ')
+        'These route segments are missing from Team::reservedSlugs(): '.$missing->implode(', ')
     );
 });

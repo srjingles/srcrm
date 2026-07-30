@@ -171,3 +171,73 @@ php -r 'require "vendor/autoload.php"; require "vendor/larastan/larastan/bootstr
 ### Cómo deshacerla
 
 Devolver el guard al principio de `boot()`, envolviendo las cuatro llamadas.
+
+---
+
+## 4. Seam `config('teams.extra_reserved_slugs')`
+
+**Fecha:** 2026-07-30 (reescrita 2026-08-04 tras sluggable v4)
+**Ficheros:** `app/Models/Team.php`, `app/Rules/ValidTeamSlug.php`,
+`tests/Feature/Teams/TeamModelTest.php`
+
+### Qué se cambió
+
+Se añade `Team::reservedSlugs()`, que suma a la constante `RESERVED_SLUGS` lo que
+haya en `config('teams.extra_reserved_slugs')`. Los tres puntos que consultaban la
+constante (generación del slug, regla de validación y el test guardián) pasan a
+usar el método.
+
+> **Ojo al rebasear.** La primera versión de este seam sobrescribía
+> `Team::otherRecordExistsWithSlug()`. En sluggable v4 (upstream #428) ese método
+> **ya no existe en el trait**: se movió a `GenerateSlugAction`, y upstream metió el
+> guard en `App\Support\ReservedSlugAwareGenerateSlugAction`, que recibe la lista por
+> constructor. El seam es hoy **una sola línea** — pasarle `self::reservedSlugs()` en
+> vez de `self::RESERVED_SLUGS` desde `Team::generateSlugAction()`.
+>
+> Es una divergencia que **falla en silencio**: si un rebase resuelve el conflicto de
+> `Team.php` quedándose con la versión de upstream, el código compila, `reservedSlugs()`
+> sigue ahí y no reserva nada. Le pasó al propio upstream (un equipo llamado "Admin"
+> se llevó el slug `admin`). Tras cada rebase, comprueba que la lista que recibe la
+> acción es el **método**, no la constante.
+
+### Por qué
+
+El slug de un equipo ocupa un **segmento de primer nivel** de la URL, así que un
+addon que registra rutas propias tiene que poder reservar el suyo. Sin esto, un
+equipo llamado "Sr Crm" toma el slug `sr-crm` y tapa `route('sr-crm.brand')` — el
+PNG del logo que referencian las cabeceras de los emails.
+
+Lo detecta el propio test guardián de upstream, `reserved slugs cover all
+top-level route segments`, que compara los segmentos de todas las rutas contra la
+lista. Con el addon enlazado fallaba con:
+
+```
+These route segments are missing from Team::reservedSlugs(): sr-crm
+```
+
+El addon empuja su slug desde `SrCrmServiceProvider::reserveRouteSlug()`. Es el
+mismo patrón que `config('chat.extra_entities')`: clave neutra con default vacío
+en el host, valores desde el addon.
+
+### Cómo saber si sigue haciendo falta
+
+```bash
+php artisan test --filter='reserved slugs cover all top-level route segments'
+```
+
+Deja de hacer falta si upstream ofrece su propio punto de extensión para la lista,
+o si el addon deja de registrar rutas web de primer nivel.
+
+### Cómo deshacerla
+
+Pasar `self::RESERVED_SLUGS` a `ReservedSlugAwareGenerateSlugAction`, volver a la
+constante en `ValidTeamSlug` y en el test guardián, y borrar `reservedSlugs()`. Ojo:
+entonces hay que meter `'sr-crm'` a mano en la constante, o el test guardián se pone
+rojo otra vez.
+
+### Alternativa descartada
+
+Mover la ruta del addon a `assets/sr-crm/brand/{name}` (`assets` ya está
+reservado), que no habría tocado el host. Se descartó porque cambia una URL
+pública ya referenciada por los emails enviados: el logo se rompería en todo el
+correo antiguo.

@@ -38,7 +38,7 @@ final readonly class ValidTeamSlug implements ValidationRule
             return;
         }
 
-        if (in_array($value, Team::RESERVED_SLUGS, true)) {
+        if (in_array($value, Team::reservedSlugs(), true)) {
             $fail('The :attribute is reserved and cannot be used.');
         }
     }

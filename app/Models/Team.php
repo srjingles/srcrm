@@ -127,6 +127,26 @@ final class Team extends JetstreamTeam implements HasAvatar
     public const int INVITE_LINK_TTL_DAYS = 7;
 
     /**
+     * Slugs que ningún equipo puede tomar: los de RESERVED_SLUGS más los que aporten los
+     * addons por config('teams.extra_reserved_slugs').
+     *
+     * DIVERGENCIA CON UPSTREAM — ver docs/upstream-divergences.md. Un slug de equipo ocupa
+     * un segmento de primer nivel, así que un addon que registra rutas propias tiene que
+     * poder reservar el suyo; si no, un equipo con ese nombre las tapa. Es el mismo seam
+     * que config('chat.extra_entities'): clave neutra con default vacío que el addon empuja
+     * desde su service provider.
+     *
+     * @return list<string>
+     */
+    public static function reservedSlugs(): array
+    {
+        /** @var list<string> $extra */
+        $extra = config('teams.extra_reserved_slugs', []);
+
+        return array_values(array_unique([...self::RESERVED_SLUGS, ...$extra]));
+    }
+
+    /**
      * The event map for the model.
      *
      * @var array<string, class-string>
@@ -199,9 +219,13 @@ final class Team extends JetstreamTeam implements HasAvatar
             ->doNotGenerateSlugsOnUpdate();
     }
 
+    /**
+     * DIVERGENCIA CON UPSTREAM — ver docs/upstream-divergences.md. Upstream pasa aquí la
+     * constante; nosotros pasamos reservedSlugs(), que le suma lo que aporten los addons.
+     */
     protected function generateSlugAction(): ReservedSlugAwareGenerateSlugAction
     {
-        return new ReservedSlugAwareGenerateSlugAction(self::RESERVED_SLUGS);
+        return new ReservedSlugAwareGenerateSlugAction(self::reservedSlugs());
     }
 
     public function isPersonalTeam(): bool
