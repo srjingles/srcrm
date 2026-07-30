@@ -120,3 +120,54 @@ nuevos y cae al fallback de `TeamCreated` (ver
 
 No hay que deshacerlo nunca: se retira solo si upstream ofrece un punto de
 extensión equivalente.
+
+---
+
+## 3. Namespace de vistas de `packages/Documentation` fuera del guard de la feature
+
+**Fecha:** 2026-07-30
+**Ficheros:** `packages/Documentation/src/DocumentationServiceProvider.php`
+
+### Qué se cambió
+
+`boot()` registra vistas, componentes Blade y publishing **siempre**, y deja bajo
+`Feature::active(Documentation::class)` únicamente el registro de rutas. Antes el
+guard cortaba en seco las cuatro cosas.
+
+### Por qué
+
+La feature apaga la *sección* de documentación, o sea sus rutas. Condicionar lo
+demás tenía dos efectos colaterales:
+
+1. `php artisan vendor:publish --tag=documentation-config` no hacía nada con la
+   feature apagada, en silencio.
+2. El namespace `documentation::` quedaba sin declarar, así que el análisis
+   estático no podía resolver ningún view-string del paquete. Larastan valida
+   `view-string` llamando a `view()->exists()` sobre la app arrancada
+   (`vendor/larastan/larastan/src/Types/ViewStringType.php`), y en ese arranque la
+   feature evalúa a `false`. De ahí **4 errores `argument.type`** en
+   `Components/Card.php` y `Http/Controllers/DocumentationController.php`.
+
+Vistas y componentes son inertes sin rutas que los usen, así que registrarlos
+siempre no enciende nada.
+
+### Cómo saber si sigue haciendo falta
+
+```bash
+rm -rf /tmp/phpstan && vendor/bin/phpstan analyse
+```
+
+El borrado de `/tmp/phpstan` no es opcional: `clear-result-cache` **no** vacía la
+caché de contenedor de larastan, y sin borrarla el análisis sigue devolviendo los
+4 errores aunque el arreglo esté puesto. Comprobación directa del mecanismo:
+
+```bash
+php -r 'require "vendor/autoload.php"; require "vendor/larastan/larastan/bootstrap.php";
+        var_dump(view()->exists("documentation::index"));'
+```
+
+`true` con el arreglo, `false` sin él.
+
+### Cómo deshacerla
+
+Devolver el guard al principio de `boot()`, envolviendo las cuatro llamadas.
