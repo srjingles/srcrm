@@ -83,10 +83,15 @@ test('guest clicking invitation link sees team name and sign-in link on register
         ->assertSee('sign in', escape: false);
 });
 
-test('register page without invitation shows default subheading unchanged', function () {
+/*
+ | DIVERGE DE UPSTREAM a propósito. Upstream sirve el registro a cualquiera y comprueba aquí
+ | que el subheading por defecto no cambia; este fork cierra el alta sin invitación (addon
+ | srjingles/sr-crm, BlockRegistration), así que no hay página que inspeccionar: el visitante
+ | va al login. El subheading CON invitación lo cubre el test anterior.
+ */
+test('register page without invitation is closed', function () {
     $this->get(route('filament.app.auth.register'))
-        ->assertSee('sign in', escape: false)
-        ->assertDontSee('invited to join');
+        ->assertRedirect(Filament::getPanel('app')->getLoginUrl());
 });
 
 test('user registering via invitation link gets auto-verified email', function () {

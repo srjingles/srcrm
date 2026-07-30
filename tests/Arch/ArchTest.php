@@ -38,6 +38,13 @@ arch()->preset()
         // Chat tools intentionally reuse App\Http\Resources (consistent
         // LLM-facing payloads); the preset forbids resources outside Http.
         'Relaticle\Chat',
+        // Igual que arriba, para el addon srjingles/sr-crm: sus JsonApiResource
+        // referencian App\Http\Resources\V1\UserResource en las relaciones
+        // (`creator`), lo mismo que hacen los recursos del host entre sí. El
+        // preset solo reconoce App\Http como hogar válido de un resource, así
+        // que no ve el Http\Resources del addon. Solo se evalúa cuando el addon
+        // está enlazado en vendor (bin/dev-link.sh); sin él la regla no lo ve.
+        'SrJingles\SrCrm',
     ]);
 
 arch('strict types')

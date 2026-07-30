@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\PrivacyPolicyController;
 use App\Http\Controllers\TermsOfServiceController;
+use Filament\Facades\Filament;
 use Illuminate\Support\Facades\Http;
 
 mutates(HomeController::class, TermsOfServiceController::class, PrivacyPolicyController::class);
@@ -141,10 +142,17 @@ describe('Authentication redirects', function () {
         $response->assertRedirect(url()->getAppUrl('login'));
     });
 
-    it('redirects register to app panel', function () {
+    /*
+     | DIVERGE DE UPSTREAM a propósito. Upstream redirige /register al registro del panel;
+     | este fork lo cierra (addon srjingles/sr-crm, BlockRegistration): el alta es SOLO por
+     | invitación nominal, así que sin una en sesión el visitante acaba en el login.
+     | El camino CON invitación lo cubren tests/Feature/Teams/InvitationUxTest.php y
+     | tests/Feature/SrCrm/RegistrationInvitationGateTest.php.
+     */
+    it('closes register to visitors without an invitation', function () {
         $response = $this->get('/register');
 
-        $response->assertRedirect(url()->getAppUrl('register'));
+        $response->assertRedirect(Filament::getPanel('app')->getLoginUrl());
     });
 
     it('redirects forgot password to app panel', function () {

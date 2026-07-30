@@ -64,10 +64,22 @@ it('updates the task status by option label and persists the option id', functio
 it('updates the task priority by option label and persists the option id', function (): void {
     $task = Task::factory()->for($this->team)->create(['title' => 'T']);
 
-    runUpdateToolForCustomFieldsTest(UpdateTaskTool::class, $task, ['priority' => 'High']);
+    // La etiqueta se lee de la BD (igual que en el test de `stage`): el addon srjingles/sr-crm
+    // redefine el juego de opciones de `priority`, así que 'High' no existe en este fork. Lo
+    // que se prueba es que el tool resuelve un select por etiqueta, no una etiqueta concreta.
+    $priorityLabel = CustomField::query()
+        ->where('tenant_id', $this->team->getKey())
+        ->where('entity_type', 'task')
+        ->where('code', 'priority')
+        ->firstOrFail()
+        ->options
+        ->first()
+        ->name;
+
+    runUpdateToolForCustomFieldsTest(UpdateTaskTool::class, $task, ['priority' => $priorityLabel]);
     resolve(UpdateTask::class)->execute($this->user, $task, latestPendingForCustomFieldsTest()->action_data);
 
-    expect(optionLabelForCustomFieldsTest($task, 'priority'))->toBe('High');
+    expect(optionLabelForCustomFieldsTest($task, 'priority'))->toBe($priorityLabel);
 });
 
 it('updates the task due_date via ISO 8601 and persists as datetime_value', function (): void {
@@ -83,6 +95,16 @@ it('updates the task due_date via ISO 8601 and persists as datetime_value', func
 
 it('updates company domains via custom_fields and persists as json_value', function (): void {
     $company = Company::factory()->for($this->team)->create(['name' => 'Acme']);
+
+    // El addon srjingles/sr-crm desactiva "domains" a propósito y los tools de chat solo
+    // aceptan campos activos. Lo que se prueba es un custom field multivalor que persiste
+    // en json_value, no ese campo en concreto, así que se reactiva para el test.
+    CustomField::query()
+        ->withoutGlobalScopes()
+        ->where('tenant_id', $this->team->getKey())
+        ->where('entity_type', 'company')
+        ->where('code', 'domains')
+        ->update(['active' => true]);
 
     runUpdateToolForCustomFieldsTest(UpdateCompanyTool::class, $company, ['domains' => ['acme.com', 'acme.io']]);
     resolve(UpdateCompany::class)->execute($this->user, $company, latestPendingForCustomFieldsTest()->action_data);

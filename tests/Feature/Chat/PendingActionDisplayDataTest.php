@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Models\Company;
+use App\Models\CustomField;
 use App\Models\User;
 use Laravel\Ai\Tools\Request;
 use Relaticle\Chat\Models\PendingAction;
@@ -109,11 +110,24 @@ it('emits type hints on custom field display rows', function (): void {
 
     $rows = collect($pending->display_data['fields']);
 
-    expect($rows->firstWhere('label', 'LinkedIn')['type'])->toBe('link')
-        ->and($rows->firstWhere('label', 'ICP')['type'])->toBe('boolean');
+    // Se busca por 'code' y no por 'label': el nombre visible de un campo es del tenant y el
+    // addon srjingles/sr-crm renombra algunos (icp -> "Cliente Ideal"). El código es la
+    // identidad estable, así que la aserción es la misma pero más firme.
+    expect($rows->firstWhere('code', 'linkedin')['type'])->toBe('link')
+        ->and($rows->firstWhere('code', 'icp')['type'])->toBe('boolean');
 });
 
 it('emits a per-url values list for multi-value link fields', function (): void {
+    // El addon srjingles/sr-crm desactiva "domains" a propósito y los tools de chat solo
+    // aceptan campos activos. Lo que se prueba es el formato de un link multivalor en la
+    // tarjeta de propuesta, no ese campo en concreto, así que se reactiva para el test.
+    CustomField::query()
+        ->withoutGlobalScopes()
+        ->where('tenant_id', $this->user->currentTeam->getKey())
+        ->where('entity_type', 'company')
+        ->where('code', 'domains')
+        ->update(['active' => true]);
+
     /** @var CreateCompanyTool $tool */
     $tool = app(CreateCompanyTool::class);
 

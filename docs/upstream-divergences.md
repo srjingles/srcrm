@@ -241,3 +241,75 @@ Mover la ruta del addon a `assets/sr-crm/brand/{name}` (`assets` ya está
 reservado), que no habría tocado el host. Se descartó porque cambia una URL
 pública ya referenciada por los emails enviados: el logo se rompería en todo el
 correo antiguo.
+
+---
+
+## 5. Tests de upstream adaptados al juego de campos y al alta del fork
+
+**Fecha:** 2026-07-30
+**Ficheros:** `tests/Arch/ArchTest.php`, `tests/Feature/AI/RecordSummaryServiceTest.php`,
+`tests/Feature/ActivityLog/*Test.php`, `tests/Feature/Api/V1/CompaniesApiTest.php`,
+`tests/Feature/Auth/SocialiteLoginTest.php`, `tests/Feature/Chat/AllCustomFieldsViaChatTest.php`,
+`tests/Feature/Chat/PendingActionDisplayDataTest.php`, `tests/Feature/Jobs/FetchFaviconForCompanyTest.php`,
+`tests/Feature/Observers/CompanyObserverFaviconTest.php`, `tests/Feature/Onboarding/CreateTeamOnboardingTest.php`,
+`tests/Feature/Public/PublicPagesTest.php`, `tests/Feature/Teams/InvitationUxTest.php`
+
+### Por qué
+
+Estos tests dan por hecho el CRM de upstream tal cual. Con el addon enlazado eso
+deja de ser cierto por tres motivos, y solo por esos tres:
+
+1. **Las secciones están activas.** Crear un equipo ya siembra la sección
+   `general` de cada entidad, así que un `create()` a pelo choca contra
+   `custom_field_sections_entity_type_code_tenant_id_unique`.
+2. **El juego de custom fields cambia.** El addon siembra los suyos (`industry`
+   como select, `website`…), desactiva `domains` de Compañías y redefine las
+   opciones de `priority`.
+3. **El alta es solo por invitación nominal.** `BlockRegistration` e
+   `InvitationOnlySocialUserCreator` cierran el registro web y el social.
+
+### Cómo se adaptaron
+
+Sin debilitar ninguna aserción; donde se pudo se sustituyó por una más firme:
+
+- `firstOrCreate` en vez de `create` para la sección `general`.
+- Códigos propios del test (`api_industry`, `activity_website`) donde el código de
+  upstream ya lo ocupa el addon.
+- Reactivar `domains` en el arrange cuando lo que se prueba es otra cosa (el
+  favicon, el aplanado multivalor, el formato de un link en la tarjeta).
+- Buscar por `code` en vez de por `label`, que es identidad estable frente a los
+  renombrados del addon.
+- Leer la etiqueta de opción de la BD en vez de fijar `'High'`.
+- Comprobar que están **todos** los códigos de los enums del host en vez de contar
+  filas.
+- Invertir las aserciones de alta abierta a alta cerrada, señalando en cada una el
+  test del addon que cubre el camino con invitación.
+
+`tests/Arch/ArchTest.php` suma `'SrJingles\SrCrm'` a los ignores del preset de
+Laravel, junto al `'Relaticle\Chat'` que ya estaba y por el mismo motivo: el
+preset solo reconoce `App\Http` como hogar válido de un API Resource.
+
+### Cómo saber si sigue haciendo falta
+
+Cada cambio lleva su comentario en el sitio explicando cuál de los tres motivos lo
+provoca. Si el addon deja de desactivar `domains`, de redefinir `priority` o de
+cerrar el alta, el cambio correspondiente sobra.
+
+### Cómo deshacerla
+
+`git diff upstream/main HEAD -- tests/` y revertir lo que corresponda.
+
+**Ojo con la asimetría** (verificado el 2026-07-30 desenlazando el addon y
+corriendo estos ficheros):
+
+- Las adaptaciones de los motivos **1 y 2** —secciones y juego de campos— pasan
+  con y sin addon: `firstOrCreate`, los códigos propios, buscar por `code` y leer
+  la etiqueta de la BD son correctos también contra el CRM vainilla.
+- Las del motivo **3** —alta cerrada— **solo** pasan con el addon enlazado, porque
+  afirman el comportamiento del fork. Son 3: `SocialiteLoginTest`,
+  `PublicPagesTest` y `InvitationUxTest`.
+
+Esto no es una regresión nueva: la suite del host ya exigía el addon desde antes
+(todo `tests/Feature/SrCrm/` referencia clases `SrJingles\…`, y
+`InviteLinkBannerTest` ya afirmaba el alta cerrada). El entorno de referencia para
+correr la suite es **con el addon**, según `docs/deploy.md`.

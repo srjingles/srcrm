@@ -3,6 +3,11 @@
 declare(strict_types=1);
 
 use App\Actions\Jetstream\CreateTeam as CreateTeamAction;
+use App\Enums\CustomFields\CompanyField;
+use App\Enums\CustomFields\NoteField;
+use App\Enums\CustomFields\OpportunityField;
+use App\Enums\CustomFields\PeopleField;
+use App\Enums\CustomFields\TaskField;
 use App\Enums\OnboardingReferralSource;
 use App\Enums\OnboardingUseCase;
 use App\Features\OnboardSeed;
@@ -18,9 +23,12 @@ use App\Models\People;
 use App\Models\Task;
 use App\Models\Team;
 use App\Models\User;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\ValidationException;
 use Laravel\Pennant\Feature;
+use Relaticle\CustomFields\Enums\CustomFieldsFeature;
+use Relaticle\CustomFields\FeatureSystem\FeatureConfigurator;
 use Relaticle\CustomFields\Models\CustomFieldSection;
 use Relaticle\CustomFields\Services\TenantContextService;
 use Relaticle\OnboardSeed\OnboardSeedManager;
@@ -340,16 +348,21 @@ it('creates all custom fields for the first team', function (): void {
 
     $team = $user->fresh()->personalTeam();
 
-    $fields = CustomField::withoutGlobalScopes()
+    $codes = CustomField::withoutGlobalScopes()
         ->where('tenant_id', $team->id)
         ->get()
-        ->groupBy('entity_type');
+        ->groupBy('entity_type')
+        ->map(fn (Collection $group): array => $group->pluck('code')->all());
 
-    expect($fields->get('company'))->toHaveCount(3)
-        ->and($fields->get('people'))->toHaveCount(4)
-        ->and($fields->get('opportunity'))->toHaveCount(3)
-        ->and($fields->get('task'))->toHaveCount(4)
-        ->and($fields->get('note'))->toHaveCount(1);
+    // Se comprueba que están todos los campos que declaran los enums del host, en vez de
+    // contar filas: un addon puede sembrar los suyos (srjingles/sr-crm lo hace), con lo que
+    // el número deja de ser estable, pero la garantía que importa —que el listener siembra
+    // el juego base entero— es exactamente ésta.
+    expect($codes->get('company'))->toContain(...array_column(CompanyField::cases(), 'value'))
+        ->and($codes->get('people'))->toContain(...array_column(PeopleField::cases(), 'value'))
+        ->and($codes->get('opportunity'))->toContain(...array_column(OpportunityField::cases(), 'value'))
+        ->and($codes->get('task'))->toContain(...array_column(TaskField::cases(), 'value'))
+        ->and($codes->get('note'))->toContain(...array_column(NoteField::cases(), 'value'));
 });
 
 it('seeds people linked to their correct companies for sales', function (): void {
@@ -722,13 +735,22 @@ it('allows empty onboarding context for use cases without sub-options', function
  | CreateTeamCustomFields solo llamaba a setTenantId(), que informa al migrador pero NO al
  | contexto ambiente de TenantContextService, que es por donde se scopan las consultas
  | Eloquent que el migrador hace por debajo. Con las secciones de campos personalizados
- | activas (las enciende el addon), la búsqueda de la sección miraba en el equipo
- | equivocado, no la encontraba y la insertaba de nuevo: clave duplicada y 500 al crear el
- | segundo equipo. Ver docs/upstream-divergences.md.
+ | activas, la búsqueda de la sección miraba en el equipo equivocado, no la encontraba y la
+ | insertaba de nuevo: clave duplicada y 500 al crear el segundo equipo. Ver
+ | docs/upstream-divergences.md.
  |
  | El caso normal es justo éste: un usuario que ya está trabajando en un equipo crea otro.
+ |
+ | El test enciende SYSTEM_SECTIONS por su cuenta —igual que hace el addon en su service
+ | provider— para no depender de que el addon esté instalado: la rama se valida en CI sin
+ | él. El listener del host ya declara la sección 'general' de cada campo, así que con la
+ | feature activa el camino defectuoso se reproduce entero desde el host.
  */
 it('crea un segundo equipo aunque el contexto de tenant apunte a otro', function (): void {
+    $features = config('custom-fields.features');
+    expect($features)->toBeInstanceOf(FeatureConfigurator::class);
+    $features->enable(CustomFieldsFeature::SYSTEM_SECTIONS);
+
     $user = User::factory()->withTeam()->create();
     $this->actingAs($user);
 

@@ -19,6 +19,17 @@ beforeEach(function (): void {
     $this->user = User::factory()->withTeam()->create();
     $this->actingAs($this->user);
     Filament::setTenant($this->user->currentTeam);
+
+    // El addon srjingles/sr-crm desactiva "domains" en Compañías a propósito
+    // (SrCrmFieldBlueprint::remove) y el scope global de campos activos lo esconde.
+    // Lo que aquí se prueba es el favicon a partir del dominio, no ese campo en
+    // concreto, así que se reactiva para el test y la cobertura se conserva.
+    CustomField::query()
+        ->withoutGlobalScopes()
+        ->where('tenant_id', $this->user->currentTeam->getKey())
+        ->where('entity_type', 'company')
+        ->where('code', CompanyField::DOMAINS->value)
+        ->update(['active' => true]);
 });
 
 test('job declares timeout, tries, uniqueFor consistent with horizon worker timeout', function (): void {

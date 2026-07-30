@@ -15,15 +15,22 @@ beforeEach(function (): void {
     $this->team = $this->user->currentTeam;
     Filament::setTenant($this->team);
 
-    $section = CustomFieldSection::query()->create([
-        'tenant_id' => $this->team->getKey(),
-        'entity_type' => 'company',
-        'code' => 'general',
-        'name' => 'General',
-        'type' => 'section',
-        'sort_order' => 0,
-        'active' => true,
-    ]);
+    // firstOrCreate y no create: crear el equipo ya siembra la sección 'general' de cada
+    // entidad cuando las secciones están activas (las enciende el addon srjingles/sr-crm),
+    // y un insert a pelo choca contra custom_field_sections_entity_type_code_tenant_id_unique.
+    $section = CustomFieldSection::query()->firstOrCreate(
+        [
+            'tenant_id' => $this->team->getKey(),
+            'entity_type' => 'company',
+            'code' => 'general',
+        ],
+        [
+            'name' => 'General',
+            'type' => 'section',
+            'sort_order' => 0,
+            'active' => true,
+        ],
+    );
 
     $this->field = CustomField::query()->create([
         'tenant_id' => $this->team->getKey(),
@@ -69,11 +76,14 @@ it('logs a custom_field_changes activity when a value is updated', function (): 
 });
 
 it('renders link-field values as plain URLs, not escaped JSON', function (): void {
+    // Código propio del test ('activity_website' y no 'website') para no chocar con
+    // custom_fields_code_entity_type_tenant_id_unique: el addon srjingles/sr-crm siembra
+    // un 'website' en cada equipo. Lo que se prueba es el log de un campo de tipo link.
     $linkField = CustomField::query()->create([
         'tenant_id' => $this->team->getKey(),
         'custom_field_section_id' => $this->field->custom_field_section_id,
         'entity_type' => 'company',
-        'code' => 'website',
+        'code' => 'activity_website',
         'name' => 'Website',
         'type' => 'link',
         'sort_order' => 2,
@@ -84,12 +94,12 @@ it('renders link-field values as plain URLs, not escaped JSON', function (): voi
     $company = Company::factory()->for($this->team)->create();
     Activity::withoutGlobalScopes()->delete();
 
-    $company->saveCustomFields(['website' => ['https://www.linkedin.com/company/airbnb']]);
+    $company->saveCustomFields(['activity_website' => ['https://www.linkedin.com/company/airbnb']]);
 
     $activity = Activity::query()->latest('id')->first();
     $change = $activity->properties['custom_field_changes'][0];
 
-    expect($change['code'])->toBe('website')
+    expect($change['code'])->toBe('activity_website')
         ->and($change['new']['label'])->toBe('https://www.linkedin.com/company/airbnb')
         ->and($change['new']['label'])->not->toContain('\\/')
         ->and($change['new']['label'])->not->toContain('[');
@@ -105,11 +115,14 @@ it('does not log when saving an empty value for a previously empty field', funct
 });
 
 it('does not log a link change that is only a URL-scheme normalization', function (): void {
+    // Código propio del test ('activity_website' y no 'website') para no chocar con
+    // custom_fields_code_entity_type_tenant_id_unique: el addon srjingles/sr-crm siembra
+    // un 'website' en cada equipo. Lo que se prueba es el log de un campo de tipo link.
     $linkField = CustomField::query()->create([
         'tenant_id' => $this->team->getKey(),
         'custom_field_section_id' => $this->field->custom_field_section_id,
         'entity_type' => 'company',
-        'code' => 'website',
+        'code' => 'activity_website',
         'name' => 'Website',
         'type' => 'link',
         'sort_order' => 2,
@@ -118,20 +131,23 @@ it('does not log a link change that is only a URL-scheme normalization', functio
     ]);
 
     $company = Company::factory()->for($this->team)->create();
-    $company->saveCustomFields(['website' => ['https://airbnb.com']]);
+    $company->saveCustomFields(['activity_website' => ['https://airbnb.com']]);
     Activity::withoutGlobalScopes()->delete();
 
-    $company->saveCustomFields(['website' => ['airbnb.com']]);
+    $company->saveCustomFields(['activity_website' => ['airbnb.com']]);
 
     expect(Activity::withoutGlobalScopes()->where('event', 'custom_field_changes')->count())->toBe(0);
 });
 
 it('still logs a genuine link value change', function (): void {
+    // Código propio del test ('activity_website' y no 'website') para no chocar con
+    // custom_fields_code_entity_type_tenant_id_unique: el addon srjingles/sr-crm siembra
+    // un 'website' en cada equipo. Lo que se prueba es el log de un campo de tipo link.
     $linkField = CustomField::query()->create([
         'tenant_id' => $this->team->getKey(),
         'custom_field_section_id' => $this->field->custom_field_section_id,
         'entity_type' => 'company',
-        'code' => 'website',
+        'code' => 'activity_website',
         'name' => 'Website',
         'type' => 'link',
         'sort_order' => 2,
@@ -140,10 +156,10 @@ it('still logs a genuine link value change', function (): void {
     ]);
 
     $company = Company::factory()->for($this->team)->create();
-    $company->saveCustomFields(['website' => ['airbnb.com']]);
+    $company->saveCustomFields(['activity_website' => ['airbnb.com']]);
     Activity::withoutGlobalScopes()->delete();
 
-    $company->saveCustomFields(['website' => ['google.com']]);
+    $company->saveCustomFields(['activity_website' => ['google.com']]);
 
     $activity = Activity::withoutGlobalScopes()->where('event', 'custom_field_changes')->latest('id')->first();
 

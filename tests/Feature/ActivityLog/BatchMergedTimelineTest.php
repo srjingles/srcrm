@@ -16,15 +16,22 @@ beforeEach(function (): void {
     $this->team = $this->user->currentTeam;
     Filament::setTenant($this->team);
 
-    $section = CustomFieldSection::query()->create([
-        'tenant_id' => $this->team->getKey(),
-        'entity_type' => 'company',
-        'code' => 'general',
-        'name' => 'General',
-        'type' => 'section',
-        'sort_order' => 0,
-        'active' => true,
-    ]);
+    // firstOrCreate y no create: crear el equipo ya siembra la sección 'general' de cada
+    // entidad cuando las secciones están activas (las enciende el addon srjingles/sr-crm),
+    // y un insert a pelo choca contra custom_field_sections_entity_type_code_tenant_id_unique.
+    $section = CustomFieldSection::query()->firstOrCreate(
+        [
+            'tenant_id' => $this->team->getKey(),
+            'entity_type' => 'company',
+            'code' => 'general',
+        ],
+        [
+            'name' => 'General',
+            'type' => 'section',
+            'sort_order' => 0,
+            'active' => true,
+        ],
+    );
 
     CustomField::query()->create([
         'tenant_id' => $this->team->getKey(),

@@ -30,27 +30,29 @@ test('redirect to socialite provider', function () {
     $response->assertRedirect();
 });
 
-test('callback from socialite provider creates new user when user does not exist', function () {
+/*
+ | DIVERGE DE UPSTREAM a propósito. Upstream da de alta a cualquiera que llegue por login
+ | social; este fork lo cierra (addon srjingles/sr-crm: el contrato CreatesNewSocialUsers lo
+ | implementa InvitationOnlySocialUserCreator, que exige una invitación nominal en sesión).
+ | El alta social CON invitación —el camino que sí crea usuario— la cubre
+ | tests/Feature/SrCrm/InvitationSocialSignupTest.php.
+ */
+test('callback from socialite provider does not create a user without an invitation', function () {
     Socialite::fake(
         SocialiteProvider::GOOGLE->value,
         makeSocialiteUser('123456789', 'Test User', 'test@example.com'),
     );
 
-    $response = $this->get(route('auth.socialite.callback', ['provider' => SocialiteProvider::GOOGLE->value, 'code' => 'test-code']));
+    $this->get(route('auth.socialite.callback', ['provider' => SocialiteProvider::GOOGLE->value, 'code' => 'test-code']));
 
-    $this->assertDatabaseHas('users', [
-        'email' => 'test@example.com',
-        'name' => 'Test User',
-    ]);
+    $this->assertDatabaseMissing('users', ['email' => 'test@example.com']);
 
-    $this->assertDatabaseHas('user_social_accounts', [
+    $this->assertDatabaseMissing('user_social_accounts', [
         'provider_name' => SocialiteProvider::GOOGLE->value,
         'provider_id' => '123456789',
     ]);
 
-    $this->assertAuthenticated();
-
-    $response->assertRedirect(url()->getAppUrl());
+    $this->assertGuest();
 });
 
 test('callback from socialite provider logs in existing user when social account exists', function () {

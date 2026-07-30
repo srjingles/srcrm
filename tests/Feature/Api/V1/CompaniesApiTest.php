@@ -276,17 +276,28 @@ describe('includes', function (): void {
 
 describe('custom fields', function (): void {
     beforeEach(function (): void {
-        $this->section = CustomFieldSection::create([
-            'tenant_id' => $this->team->id,
-            'entity_type' => 'company',
-            'name' => 'General',
-            'code' => 'general',
-            'type' => 'section',
-            'sort_order' => 1,
-            'active' => true,
-        ]);
+        // firstOrCreate y no create: crear el equipo ya siembra la sección 'general' de cada
+        // entidad cuando las secciones están activas (las enciende el addon srjingles/sr-crm),
+        // y un insert a pelo choca contra custom_field_sections_entity_type_code_tenant_id_unique.
+        $this->section = CustomFieldSection::query()->firstOrCreate(
+            [
+                'tenant_id' => $this->team->id,
+                'entity_type' => 'company',
+                'code' => 'general',
+            ],
+            [
+                'name' => 'General',
+                'type' => 'section',
+                'sort_order' => 1,
+                'active' => true,
+            ],
+        );
     });
 
+    // El código del campo es propio del test ('api_industry' y no 'industry') para no
+    // chocar con custom_fields_code_entity_type_tenant_id_unique: el addon srjingles/sr-crm
+    // siembra un 'industry' de tipo select en cada equipo. Lo que se prueba es la API con un
+    // custom field de texto, no ese código en concreto.
     it('can create a company with custom fields', function (): void {
         Sanctum::actingAs($this->user);
 
@@ -294,8 +305,8 @@ describe('custom fields', function (): void {
             'tenant_id' => $this->team->id,
             'custom_field_section_id' => $this->section->id,
             'entity_type' => 'company',
-            'code' => 'industry',
-            'name' => 'Industry',
+            'code' => 'api_industry',
+            'name' => 'API Industry',
             'type' => 'text',
             'sort_order' => 1,
             'active' => true,
@@ -305,7 +316,7 @@ describe('custom fields', function (): void {
         $this->postJson('/api/v1/companies', [
             'name' => 'Acme Corp',
             'custom_fields' => [
-                'industry' => 'Technology',
+                'api_industry' => 'Technology',
             ],
         ])
             ->assertCreated()
@@ -314,7 +325,7 @@ describe('custom fields', function (): void {
                 ->has('data', fn (AssertableJson $json) => $json
                     ->has('attributes', fn (AssertableJson $json) => $json
                         ->where('name', 'Acme Corp')
-                        ->where('custom_fields.industry', 'Technology')
+                        ->where('custom_fields.api_industry', 'Technology')
                         ->etc()
                     )
                     ->etc()
@@ -329,8 +340,8 @@ describe('custom fields', function (): void {
             'tenant_id' => $this->team->id,
             'custom_field_section_id' => $this->section->id,
             'entity_type' => 'company',
-            'code' => 'industry',
-            'name' => 'Industry',
+            'code' => 'api_industry',
+            'name' => 'API Industry',
             'type' => 'text',
             'sort_order' => 1,
             'active' => true,
@@ -342,7 +353,7 @@ describe('custom fields', function (): void {
         $this->putJson("/api/v1/companies/{$company->id}", [
             'name' => 'Updated Name',
             'custom_fields' => [
-                'industry' => 'Finance',
+                'api_industry' => 'Finance',
             ],
         ])
             ->assertOk()
@@ -351,7 +362,7 @@ describe('custom fields', function (): void {
                 ->has('data', fn (AssertableJson $json) => $json
                     ->has('attributes', fn (AssertableJson $json) => $json
                         ->where('name', 'Updated Name')
-                        ->where('custom_fields.industry', 'Finance')
+                        ->where('custom_fields.api_industry', 'Finance')
                         ->etc()
                     )
                     ->etc()
@@ -666,6 +677,12 @@ describe('custom fields', function (): void {
 
         expect($domainsField)->not->toBeNull('domains custom field should be auto-created by team listener');
 
+        // El addon srjingles/sr-crm desactiva "domains" en Compañías a propósito
+        // (SrCrmFieldBlueprint::remove), y ValidCustomFields solo mira los campos activos.
+        // Lo que aquí se prueba es la validación de un custom field de tipo link, no ese
+        // campo en concreto, así que se reactiva para el test y la cobertura se conserva.
+        $domainsField->forceFill(['active' => true])->save();
+
         $this->postJson('/api/v1/companies', [
             'name' => 'Acme Corp',
             'custom_fields' => [
@@ -687,6 +704,12 @@ describe('custom fields', function (): void {
             ->first();
 
         expect($domainsField)->not->toBeNull('domains custom field should be auto-created by team listener');
+
+        // El addon srjingles/sr-crm desactiva "domains" en Compañías a propósito
+        // (SrCrmFieldBlueprint::remove), y ValidCustomFields solo mira los campos activos.
+        // Lo que aquí se prueba es la validación de un custom field de tipo link, no ese
+        // campo en concreto, así que se reactiva para el test y la cobertura se conserva.
+        $domainsField->forceFill(['active' => true])->save();
 
         $this->postJson('/api/v1/companies', [
             'name' => 'Acme Corp',
