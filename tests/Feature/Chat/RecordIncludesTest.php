@@ -172,7 +172,10 @@ it('does not strip or truncate a non-text custom field value on an included item
         ->where('code', 'priority')
         ->with('options')
         ->firstOrFail();
-    $highOption = $priorityField->options->firstWhere('name', 'High');
+    // La etiqueta se lee de la BD en vez de fijar 'High': el addon redefine la escala de
+    // prioridad de Tareas (ver docs/upstream-divergences.md, entrada 5). Lo que este test
+    // comprueba es que un select viaje como {id, label} sin recortar, no cuál es la escala.
+    $highOption = $priorityField->options->last();
 
     resolve(UpdateTask::class)->execute($this->user, $task, [
         'custom_fields' => ['priority' => (string) $highOption->getKey()],
@@ -186,6 +189,6 @@ it('does not strip or truncate a non-text custom field value on an included item
     expect($payload['included']['tasks']['items'][0]['attributes']['custom_fields']['priority'])
         ->toBe([
             'id' => (string) $highOption->getKey(),
-            'label' => 'High',
+            'label' => $highOption->name,
         ]);
 });

@@ -246,11 +246,12 @@ correo antiguo.
 
 ## 5. Tests de upstream adaptados al juego de campos y al alta del fork
 
-**Fecha:** 2026-07-30
-**Ficheros:** `tests/Arch/ArchTest.php`, `tests/Feature/AI/RecordSummaryServiceTest.php`,
+**Fecha:** 2026-07-30 (ampliada 2026-08-04)
+**Ficheros:** `tests/Arch/ArchTest.php`,
 `tests/Feature/ActivityLog/*Test.php`, `tests/Feature/Api/V1/CompaniesApiTest.php`,
 `tests/Feature/Auth/SocialiteLoginTest.php`, `tests/Feature/Chat/AllCustomFieldsViaChatTest.php`,
-`tests/Feature/Chat/PendingActionDisplayDataTest.php`, `tests/Feature/Jobs/FetchFaviconForCompanyTest.php`,
+`tests/Feature/Chat/PendingActionDisplayDataTest.php`, `tests/Feature/Chat/RecordIncludesTest.php`,
+`tests/Feature/Jobs/FetchFaviconForCompanyTest.php`,
 `tests/Feature/Observers/CompanyObserverFaviconTest.php`, `tests/Feature/Onboarding/CreateTeamOnboardingTest.php`,
 `tests/Feature/Public/PublicPagesTest.php`, `tests/Feature/Teams/InvitationUxTest.php`
 
@@ -279,7 +280,12 @@ Sin debilitar ninguna aserción; donde se pudo se sustituyó por una más firme:
   favicon, el aplanado multivalor, el formato de un link en la tarjeta).
 - Buscar por `code` en vez de por `label`, que es identidad estable frente a los
   renombrados del addon.
-- Leer la etiqueta de opción de la BD en vez de fijar `'High'`.
+- Leer la etiqueta de opción de la BD en vez de fijar `'High'`. Es la adaptación que
+  más veces vuelve: `RecordIncludesTest` (upstream #429) llegó con el mismo `'High'`
+  fijo y cayó igual, con `getKey() on null`. Cada test nuevo de upstream que toque
+  `priority` va a necesitarla.
+- `tests/Feature/AI/RecordSummaryServiceTest.php` salió de esta lista: upstream lo
+  borró en #429 al desmontar el stack de resúmenes de ficha.
 - Comprobar que están **todos** los códigos de los enums del host en vez de contar
   filas.
 - Invertir las aserciones de alta abierta a alta cerrada, señalando en cada una el
