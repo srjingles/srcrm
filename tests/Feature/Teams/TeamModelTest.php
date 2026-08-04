@@ -222,6 +222,30 @@ test('auto-generated slug from reserved name gets suffixed', function () {
         ->and($team->slug)->toStartWith('admin-');
 });
 
+// DIVERGENCIA CON UPSTREAM (entrada 4 de docs/upstream-divergences.md). El test de
+// arriba usa un slug de la constante, así que pasa igual con la versión de upstream.
+// Este usa uno que SOLO llega por config('teams.extra_reserved_slugs'), y por eso es
+// el que detecta que Team::generateSlugAction() haya dejado de pasarle reservedSlugs()
+// a la acción — el modo de fallo silencioso que trajo sluggable v4.
+test('auto-generated slug from an addon-reserved name gets suffixed', function () {
+    config()->set('teams.extra_reserved_slugs', ['widgets']);
+
+    Event::fake()->except(
+        fn (string $event) => str_starts_with($event, 'eloquent.')
+    );
+
+    $user = User::factory()->create();
+
+    $team = Team::query()->create([
+        'name' => 'Widgets',
+        'user_id' => $user->id,
+        'personal_team' => true,
+    ]);
+
+    expect($team->slug)->not->toBe('widgets')
+        ->and($team->slug)->toStartWith('widgets-');
+});
+
 test('reserved slugs cover all top-level route segments', function () {
     $routes = Route::getRoutes();
 
