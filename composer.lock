@@ -12631,16 +12631,16 @@
         },
         {
             "name": "srjingles/sr-crm",
-            "version": "v1.7.0",
+            "version": "v1.8.0",
             "source": {
                 "type": "git",
                 "url": "git@github.com:srjingles/srcrm-addon.git",
-                "reference": "8b25ec4b2354c9155ea27f1f8f57d8518b82688c"
+                "reference": "efefc455eb95c1cba14d8cf1578b773ff8acc82f"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/srjingles/srcrm-addon/zipball/8b25ec4b2354c9155ea27f1f8f57d8518b82688c",
-                "reference": "8b25ec4b2354c9155ea27f1f8f57d8518b82688c",
+                "url": "https://api.github.com/repos/srjingles/srcrm-addon/zipball/efefc455eb95c1cba14d8cf1578b773ff8acc82f",
+                "reference": "efefc455eb95c1cba14d8cf1578b773ff8acc82f",
                 "shasum": ""
             },
             "require": {
@@ -12677,10 +12677,10 @@
             ],
             "description": "SrJingles addon para personalizar Relaticle CRM",
             "support": {
-                "source": "https://github.com/srjingles/srcrm-addon/tree/v1.7.0",
+                "source": "https://github.com/srjingles/srcrm-addon/tree/v1.8.0",
                 "issues": "https://github.com/srjingles/srcrm-addon/issues"
             },
-            "time": "2026-08-05T12:41:12+00:00"
+            "time": "2026-08-05T13:00:07+00:00"
         },
         {
             "name": "symfony/clock",
