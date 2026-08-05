@@ -251,10 +251,12 @@ final class TasksBoard extends BoardResourcePage
         $date = Date::parse($state);
 
         return match (true) {
-            $date->isPast() => $date->format('M j, Y').' (Overdue)',
-            $date->isToday() => 'Due Today',
-            $date->isTomorrow() => 'Due Tomorrow',
-            default => $date->format('M j, Y'),
+            $date->isPast() => __('filament/pages/boards.tasks.due_date.overdue', [
+                'date' => $date->translatedFormat('j M Y'),
+            ]),
+            $date->isToday() => __('filament/pages/boards.tasks.due_date.today'),
+            $date->isTomorrow() => __('filament/pages/boards.tasks.due_date.tomorrow'),
+            default => $date->translatedFormat('j M Y'),
         };
     }
 

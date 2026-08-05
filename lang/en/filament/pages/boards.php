@@ -23,6 +23,11 @@ return [
         'form' => [
             'name_placeholder' => 'Enter opportunity title',
         ],
+        'close_date' => [
+            'overdue' => ':date (Overdue)',
+            'today' => 'Closes Today',
+            'tomorrow' => 'Closes Tomorrow',
+        ],
     ],
 
     'tasks' => [
@@ -34,6 +39,11 @@ return [
         ],
         'filters' => [
             'assignee' => 'Assignee',
+        ],
+        'due_date' => [
+            'overdue' => ':date (Overdue)',
+            'today' => 'Due Today',
+            'tomorrow' => 'Due Tomorrow',
         ],
     ],
 ];
