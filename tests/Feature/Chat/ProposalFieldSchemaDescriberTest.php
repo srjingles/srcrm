@@ -7,6 +7,7 @@ use App\Models\CustomField;
 use App\Models\User;
 use Laravel\Pennant\Feature;
 use Relaticle\Chat\Services\Tools\ProposalFieldSchemaDescriber;
+use SrJingles\SrCrm\Enums\TaskStatus;
 
 mutates(ProposalFieldSchemaDescriber::class);
 
@@ -96,7 +97,7 @@ it('describes a task single-choice status field with options and the raw id valu
 
     expect($status)->not->toBeNull('seeded task status field is required for this test');
 
-    $inProgress = $status->options->firstWhere('name', 'In progress');
+    $inProgress = $status->options->firstWhere('name', TaskStatus::InProgress->label());
     expect($inProgress)->not->toBeNull();
 
     $record = [
@@ -118,11 +119,11 @@ it('describes a task single-choice status field with options and the raw id valu
         ->and($statusField['options'])->toBeArray();
 
     $optionLabels = array_map(fn (array $o): string => $o['label'], $statusField['options']);
-    expect($optionLabels)->toContain('To do')
-        ->and($optionLabels)->toContain('In progress')
-        ->and($optionLabels)->toContain('Done');
+    expect($optionLabels)->toContain(TaskStatus::Todo->label())
+        ->and($optionLabels)->toContain(TaskStatus::InProgress->label())
+        ->and($optionLabels)->toContain(TaskStatus::Completed->label());
 
-    $inProgressOption = collect($statusField['options'])->firstWhere('label', 'In progress');
+    $inProgressOption = collect($statusField['options'])->firstWhere('label', TaskStatus::InProgress->label());
     expect($inProgressOption['id'])->toBe((string) $inProgress->id);
 });
 

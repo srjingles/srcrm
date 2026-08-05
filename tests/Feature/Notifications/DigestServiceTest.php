@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Laravel\Pennant\Feature;
+use SrJingles\SrCrm\Enums\TaskStatus;
 
 beforeEach(function (): void {
     Feature::define(OnboardSeed::class, false);
@@ -30,7 +31,7 @@ function digestStatusDoneOption(string $teamId): array
     $field = DB::table('custom_fields')->where('tenant_id', $teamId)
         ->where('entity_type', 'task')->where('code', 'status')->first();
     $fieldId = trim((string) $field->id);
-    $done = DB::table('custom_field_options')->where('custom_field_id', $fieldId)->where('name', 'Done')->first();
+    $done = DB::table('custom_field_options')->where('custom_field_id', $fieldId)->where('name', TaskStatus::Completed->label())->first();
 
     return [$fieldId, trim((string) $done->id)];
 }

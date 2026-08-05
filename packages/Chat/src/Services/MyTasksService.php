@@ -7,6 +7,7 @@ namespace Relaticle\Chat\Services;
 use App\Filament\Resources\TaskResource;
 use App\Models\Team;
 use App\Models\User;
+use App\Support\Tasks\ClosedTaskStatuses;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Database\Query\JoinClause;
 use Illuminate\Support\Carbon;
@@ -35,14 +36,14 @@ final readonly class MyTasksService
             ->where('t.team_id', $team->getKey())
             ->where('tu.user_id', $user->getKey())
             ->whereNull('t.deleted_at')
-            ->when($meta->doneOptionId !== null, function (Builder $query) use ($meta): void {
+            ->when($meta->closedOptionIds !== [], function (Builder $query) use ($meta): void {
                 $query->whereNotExists(function (Builder $sub) use ($meta): void {
                     $sub->select(DB::raw(1))
                         ->from('custom_field_values as st')
                         ->whereColumn('st.entity_id', 't.id')
                         ->where('st.entity_type', 'task')
                         ->where('st.custom_field_id', $meta->statusFieldId)
-                        ->where('st.string_value', $meta->doneOptionId);
+                        ->whereIn('st.string_value', $meta->closedOptionIds);
                 });
             });
 
@@ -106,24 +107,31 @@ final readonly class MyTasksService
         }
 
         $row = DB::table('custom_fields as cf')
-            ->leftJoin('custom_field_options as opt', function (JoinClause $join): void {
-                $join->on('opt.custom_field_id', '=', 'cf.id')
-                    ->where('opt.name', '=', 'Done');
-            })
             ->where('cf.tenant_id', $team->getKey())
             ->where('cf.entity_type', 'task')
             ->whereIn('cf.code', ['due_date', 'status'])
             ->selectRaw(implode(', ', [
                 "MAX(CASE WHEN cf.code = 'due_date' THEN cf.id END) AS due_field_id",
                 "MAX(CASE WHEN cf.code = 'status' THEN cf.id END) AS status_field_id",
-                "MAX(CASE WHEN cf.code = 'status' THEN opt.id END) AS done_option_id",
             ]))
             ->first();
 
+        $statusFieldId = $row?->status_field_id !== null ? (string) $row->status_field_id : null;
+
+        // Los estados terminales se resuelven por ETIQUETA (config/tasks.php), no contra
+        // una cadena incrustada: el juego de estados es redefinible, y comparar con "Done"
+        // a pelo deja de excluir nada EN SILENCIO en cuanto alguien lo renombra.
+        $closedOptionIds = $statusFieldId === null ? [] : DB::table('custom_field_options')
+            ->where('custom_field_id', $statusFieldId)
+            ->whereIn('name', ClosedTaskStatuses::labels())
+            ->pluck('id')
+            ->map(strval(...))
+            ->all();
+
         $meta = new MyTasksFieldMetadata(
             dueFieldId: $row?->due_field_id !== null ? (string) $row->due_field_id : null,
-            statusFieldId: $row?->status_field_id !== null ? (string) $row->status_field_id : null,
-            doneOptionId: $row?->done_option_id !== null ? (string) $row->done_option_id : null,
+            statusFieldId: $statusFieldId,
+            closedOptionIds: $closedOptionIds,
         );
 
         app()->instance($cacheKey, $meta);
@@ -150,9 +158,12 @@ final readonly class MyTasksService
  */
 final readonly class MyTasksFieldMetadata
 {
+    /**
+     * @param  list<string>  $closedOptionIds
+     */
     public function __construct(
         public ?string $dueFieldId,
         public ?string $statusFieldId,
-        public ?string $doneOptionId,
+        public array $closedOptionIds,
     ) {}
 }
