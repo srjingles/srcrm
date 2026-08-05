@@ -167,7 +167,9 @@ final class TaskResource extends Resource
     private static function makeCustomFieldGroup(string $fieldCode, Collection $customFields, ValueResolvers $valueResolver): Group
     {
         $field = $customFields[$fieldCode];
-        $label = ucfirst($fieldCode);
+        // El nombre del propio campo personalizado, que ya está en el idioma del panel,
+        // en vez de `ucfirst($fieldCode)`: el código es siempre inglés y snake_case.
+        $label = $field->name ?: ucfirst($fieldCode);
 
         return Group::make("{$fieldCode}_group")
             ->label($label)
@@ -182,7 +184,7 @@ final class TaskResource extends Resource
             ->getTitleFromRecordUsing(function (Task $record) use ($valueResolver, $field, $label): string {
                 $value = $valueResolver->resolve($record, $field);
 
-                return blank($value) ? "No {$label}" : $value;
+                return blank($value) ? __('filament/resources/task.groups.empty', ['label' => $label]) : $value;
             })
             ->getKeyFromRecordUsing(function (Task $record) use ($field): string {
                 $fieldValue = $record->customFieldValues->firstWhere('custom_field_id', $field->id);

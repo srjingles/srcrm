@@ -263,10 +263,12 @@ final class OpportunitiesBoard extends BoardResourcePage
         $date = Date::parse($state);
 
         return match (true) {
-            $date->isPast() => $date->format('M j').' (Overdue)',
-            $date->isToday() => 'Closes Today',
-            $date->isTomorrow() => 'Closes Tomorrow',
-            default => $date->format('M j'),
+            $date->isPast() => __('filament/pages/boards.opportunities.close_date.overdue', [
+                'date' => $date->translatedFormat('j M'),
+            ]),
+            $date->isToday() => __('filament/pages/boards.opportunities.close_date.today'),
+            $date->isTomorrow() => __('filament/pages/boards.opportunities.close_date.tomorrow'),
+            default => $date->translatedFormat('j M'),
         };
     }
 

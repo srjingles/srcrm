@@ -32,6 +32,10 @@ return [
         ],
     ],
 
+    'groups' => [
+        'empty' => 'No :label',
+    ],
+
     'filters' => [
         'assigned_to_me' => [
             'label' => 'Assigned to me',
