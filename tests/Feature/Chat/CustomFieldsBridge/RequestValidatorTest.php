@@ -7,6 +7,7 @@ use App\Models\CustomField;
 use App\Models\User;
 use Laravel\Pennant\Feature;
 use Relaticle\Chat\Services\Tools\CustomFieldsRequestValidator;
+use SrJingles\SrCrm\Enums\TaskStatus;
 
 beforeEach(function (): void {
     Feature::define(OnboardSeed::class, false);
@@ -31,10 +32,10 @@ it('translates single-choice labels into option IDs', function (): void {
         ->where('code', 'status')
         ->firstOrFail();
 
-    $doneId = $statusField->options->firstWhere('name', 'Done')->id;
+    $doneId = $statusField->options->firstWhere('name', TaskStatus::Completed->label())->id;
 
     $result = resolve(CustomFieldsRequestValidator::class)
-        ->validate($user, 'task', ['status' => 'Done']);
+        ->validate($user, 'task', ['status' => TaskStatus::Completed->label()]);
 
     expect($result->error)->toBeNull()
         ->and($result->cleanFields)->toBe(['status' => $doneId]);

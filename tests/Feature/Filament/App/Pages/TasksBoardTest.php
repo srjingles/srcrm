@@ -13,6 +13,7 @@ use Filament\Facades\Filament;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use Relaticle\Flowforge\Board;
+use SrJingles\SrCrm\Enums\TaskStatus;
 
 mutates(TasksBoard::class);
 
@@ -42,8 +43,8 @@ it('can render the board page', function (): void {
 });
 
 it('displays tasks in the correct board columns', function (): void {
-    $todo = $this->statusField->options->firstWhere('name', 'To do');
-    $done = $this->statusField->options->firstWhere('name', 'Done');
+    $todo = $this->statusField->options->firstWhere('name', TaskStatus::Todo->label());
+    $done = $this->statusField->options->firstWhere('name', TaskStatus::Completed->label());
 
     $todoTask = Task::factory()->recycle([$this->user, $this->team])->create();
     $todoTask->saveCustomFieldValue($this->statusField, $todo->getKey());
@@ -72,7 +73,7 @@ it('does not show tasks from other teams', function (): void {
 });
 
 it('renders the board when a task has multiple assignees', function (): void {
-    $todo = $this->statusField->options->firstWhere('name', 'To do');
+    $todo = $this->statusField->options->firstWhere('name', TaskStatus::Todo->label());
 
     $task = Task::factory()->recycle([$this->user, $this->team])->create();
     $task->saveCustomFieldValue($this->statusField, $todo->getKey());
@@ -122,8 +123,8 @@ it('resolves the status custom field once per request across access check and bo
 });
 
 it('moves a card between columns via moveCard', function (): void {
-    $todo = $this->statusField->options->firstWhere('name', 'To do');
-    $inProgress = $this->statusField->options->firstWhere('name', 'In progress');
+    $todo = $this->statusField->options->firstWhere('name', TaskStatus::Todo->label());
+    $inProgress = $this->statusField->options->firstWhere('name', TaskStatus::InProgress->label());
 
     $task = Task::factory()->recycle([$this->user, $this->team])->create();
     $task->saveCustomFieldValue($this->statusField, $todo->getKey());

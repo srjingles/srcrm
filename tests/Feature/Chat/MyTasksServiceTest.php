@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Laravel\Pennant\Feature;
 use Relaticle\Chat\Services\MyTasksService;
+use SrJingles\SrCrm\Enums\TaskStatus;
 
 mutates(MyTasksService::class);
 
@@ -53,12 +54,12 @@ function resolveStatusField(string $teamId): array
 
     $done = DB::table('custom_field_options')
         ->where('custom_field_id', $fieldId)
-        ->where('name', 'Done')
+        ->where('name', TaskStatus::Completed->label())
         ->first();
 
     $todo = DB::table('custom_field_options')
         ->where('custom_field_id', $fieldId)
-        ->where('name', 'To do')
+        ->where('name', TaskStatus::Todo->label())
         ->first();
 
     throw_if($done === null || $todo === null, RuntimeException::class, "Status options not seeded for team {$teamId}");

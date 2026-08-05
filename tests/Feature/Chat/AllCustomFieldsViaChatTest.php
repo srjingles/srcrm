@@ -26,6 +26,7 @@ use Relaticle\Chat\Tools\Note\UpdateNoteTool;
 use Relaticle\Chat\Tools\Opportunity\UpdateOpportunityTool;
 use Relaticle\Chat\Tools\People\UpdatePersonTool;
 use Relaticle\Chat\Tools\Task\UpdateTaskTool;
+use SrJingles\SrCrm\Enums\TaskStatus;
 
 beforeEach(function (): void {
     Feature::define(OnboardSeed::class, false);
@@ -55,10 +56,10 @@ it('updates the task description via custom_fields and persists as text_value', 
 it('updates the task status by option label and persists the option id', function (): void {
     $task = Task::factory()->for($this->team)->create(['title' => 'T']);
 
-    runUpdateToolForCustomFieldsTest(UpdateTaskTool::class, $task, ['status' => 'In progress']);
+    runUpdateToolForCustomFieldsTest(UpdateTaskTool::class, $task, ['status' => TaskStatus::InProgress->label()]);
     resolve(UpdateTask::class)->execute($this->user, $task, latestPendingForCustomFieldsTest()->action_data);
 
-    expect(optionLabelForCustomFieldsTest($task, 'status'))->toBe('In progress');
+    expect(optionLabelForCustomFieldsTest($task, 'status'))->toBe(TaskStatus::InProgress->label());
 });
 
 it('updates the task priority by option label and persists the option id', function (): void {

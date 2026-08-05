@@ -7,6 +7,7 @@ use App\Models\CustomField;
 use App\Models\User;
 use Laravel\Pennant\Feature;
 use Relaticle\Chat\Services\Tools\CustomFieldsSchemaDescriber;
+use SrJingles\SrCrm\Enums\TaskStatus;
 
 beforeEach(function (): void {
     Feature::define(OnboardSeed::class, false);
@@ -24,9 +25,9 @@ it('describes the system-seeded task custom fields with type hints', function ()
         ->toContain('ISO 8601')
         ->toContain('status')
         ->toContain('single-choice')
-        ->toContain('"To do"')
-        ->toContain('"In progress"')
-        ->toContain('"Done"')
+        ->toContain('"'.TaskStatus::Todo->label().'"')
+        ->toContain('"'.TaskStatus::InProgress->label().'"')
+        ->toContain('"'.TaskStatus::Completed->label().'"')
         ->toContain('priority')
         ->toContain('description');
 });

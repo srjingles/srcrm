@@ -8,6 +8,7 @@ use App\Models\Task;
 use App\Models\User;
 use Laravel\Pennant\Feature;
 use Relaticle\Chat\Services\Tools\CustomFieldsDisplayFormatter;
+use SrJingles\SrCrm\Enums\TaskStatus;
 
 beforeEach(function (): void {
     Feature::define(OnboardSeed::class, false);
@@ -21,13 +22,13 @@ it('formats a single-choice field with the option label, not the id', function (
         ->where('entity_type', 'task')
         ->where('code', 'status')
         ->firstOrFail();
-    $doneId = $statusField->options->firstWhere('name', 'Done')->id;
+    $doneId = $statusField->options->firstWhere('name', TaskStatus::Completed->label())->id;
 
     $rows = resolve(CustomFieldsDisplayFormatter::class)
         ->format($user, 'task', cleanFields: ['status' => $doneId], oldModel: null);
 
     expect($rows)->toHaveCount(1)
-        ->and($rows[0])->toMatchArray(['label' => 'Status', 'new' => 'Done']);
+        ->and($rows[0])->toMatchArray(['label' => 'Status', 'new' => TaskStatus::Completed->label()]);
 });
 
 it('formats a date-time field as a localized date string', function (): void {
