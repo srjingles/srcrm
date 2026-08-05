@@ -12,6 +12,7 @@ use App\Filament\Resources\TaskResource\Pages\TasksBoard;
 use App\Models\CustomField;
 use App\Models\Task;
 use App\Models\User;
+use App\Support\Filament\ExtraTableFilters;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
@@ -125,6 +126,10 @@ final class TaskResource extends Resource
                     ->options(CreationSource::class)
                     ->multiple(),
                 TrashedFilter::make(),
+                // Seam para addons: filters() reemplaza la lista y Table::configureUsing()
+                // corre antes de esta llamada, así que sin esto no hay forma de añadir un
+                // filtro desde fuera. Vacío si nadie lo registra.
+                ...ExtraTableFilters::for(Task::class),
             ])
             ->groups(array_filter([
                 ...collect(['status', 'priority'])->map(fn (string $fieldCode): ?\Filament\Tables\Grouping\Group => $customFields->has($fieldCode) ? self::makeCustomFieldGroup($fieldCode, $customFields, $valueResolver) : null
