@@ -319,3 +319,66 @@ Esto no es una regresión nueva: la suite del host ya exigía el addon desde ant
 (todo `tests/Feature/SrCrm/` referencia clases `SrJingles\…`, y
 `InviteLinkBannerTest` ya afirmaba el alta cerrada). El entorno de referencia para
 correr la suite es **con el addon**, según `docs/deploy.md`.
+
+---
+
+## 6. Horizon acotado a lo que cabe en el servidor
+
+**Fecha:** 2026-08-06
+**Ficheros:** `config/horizon.php`
+
+### Qué se cambió
+
+- Se **eliminan `supervisor-2` y `supervisor-3`** (de `defaults`, de `environments.production`
+  y de `environments.local`). Eran copias **carácter por carácter** de `supervisor-1`: misma
+  conexión, misma cola `default`, mismos parámetros.
+- `supervisor-1` (producción): `maxProcesses` 10 → `env('HORIZON_DEFAULT_MAX', 6)`.
+- `supervisor-imports` (producción): `maxProcesses` 15 → `env('HORIZON_IMPORTS_MAX', 4)` y
+  `minProcesses` 3 → 1. En `defaults`, 20/5 → 4/1.
+- `chat-supervisor` se queda como estaba (ya era configurable por `.env`).
+
+### Por qué
+
+Los tres supervisores idénticos no se repartían nada: con `balance => 'auto'` un solo
+supervisor ya escala procesos según la carga. Lo único que hacían era **triplicar el suelo
+de memoria**, porque cada uno mantiene su `minProcesses` vivo a todas horas.
+
+Cada worker es un proceso PHP de ~90 MB. Las cuentas de antes:
+
+| | workers | memoria |
+| --- | --- | --- |
+| En reposo | 7 | ~620 MB |
+| En pico | 48 | ~4,3 GB |
+
+El servidor tenía 1,9 GB. O sea que un pico de la cola de imports **no habría degradado el
+sitio: habría invocado al OOM killer contra Postgres o php-fpm, en producción**. Que no
+llegara a pasar es suerte, no diseño.
+
+Se descubrió por el camino largo: los deploys fallaban con `Killed npm ci` y, al mirar quién
+se comía la memoria, aparecieron ocho workers de Horizon ocupando ~700 MB en reposo.
+
+Después del cambio: 3 workers en reposo (~270 MB) y 13 en pico (~1,2 GB), sobre un servidor
+que además se subió a 4 GB.
+
+### Cómo saber si sigue haciendo falta
+
+Siempre que el servidor no tenga memoria de sobra. `maxProcesses × 90 MB` sumado de TODOS los
+supervisores es el techo real; compáralo con `free -h`. Es la cuenta que no estaba hecha.
+
+### Cómo deshacerla
+
+Restaurar el `config/horizon.php` de upstream. Solo tiene sentido en un servidor con memoria
+para 48 workers concurrentes (~4,3 GB solo de colas), y aun así los tres supervisores
+duplicados seguirían sin aportar nada.
+
+### Ajuste sin desplegar
+
+Los topes salen del `.env`, así que se suben desde el panel de Forge sin tocar código:
+
+```
+HORIZON_DEFAULT_MAX=6
+HORIZON_IMPORTS_MAX=4
+HORIZON_CHAT_MAX=3
+```
+
+Tras cambiarlos: `php artisan horizon:terminate` (Supervisor relanza el proceso).
