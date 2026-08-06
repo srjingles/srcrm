@@ -197,39 +197,13 @@ return [
             'timeout' => 60,
             'nice' => 0,
         ],
-        'supervisor-2' => [
-            'connection' => 'redis',
-            'queue' => ['default'],
-            'balance' => 'auto',
-            'autoScalingStrategy' => 'time',
-            'maxProcesses' => 1,
-            'maxTime' => 0,
-            'maxJobs' => 0,
-            'memory' => 128,
-            'tries' => 1,
-            'timeout' => 60,
-            'nice' => 0,
-        ],
-        'supervisor-3' => [
-            'connection' => 'redis',
-            'queue' => ['default'],
-            'balance' => 'auto',
-            'autoScalingStrategy' => 'time',
-            'maxProcesses' => 1,
-            'maxTime' => 0,
-            'maxJobs' => 0,
-            'memory' => 128,
-            'tries' => 1,
-            'timeout' => 60,
-            'nice' => 0,
-        ],
         'supervisor-imports' => [
             'connection' => 'redis',
             'queue' => ['imports'],
             'balance' => 'auto',
             'autoScalingStrategy' => 'time',
-            'maxProcesses' => 20,
-            'minProcesses' => 5,
+            'maxProcesses' => 4,
+            'minProcesses' => 1,
             'maxTime' => 0,
             'maxJobs' => 0,
             'memory' => 256,
@@ -241,35 +215,19 @@ return [
 
     'environments' => [
         'production' => [
+            // UN solo supervisor para la cola 'default'. Había tres declarados, idénticos
+            // carácter por carácter: no se repartían nada —con balance 'auto' un supervisor
+            // ya escala procesos según la carga— y solo triplicaban el suelo de memoria.
+            //
+            // Los topes están acotados a lo que cabe en el servidor. Cada worker es un
+            // proceso PHP de ~90 MB, así que el máximo TOTAL de la instalación (este +
+            // imports + chat) es lo que hay que mirar, no el de cada supervisor por
+            // separado. Se pueden subir desde el .env sin desplegar.
             'supervisor-1' => [
                 'connection' => 'redis',
                 'queue' => ['default'],
                 'balance' => 'auto',
-                'maxProcesses' => 10,
-                'minProcesses' => 1,
-                'balanceMaxShift' => 5,
-                'balanceCooldown' => 1,
-                'memory' => 128,
-                'tries' => 1,
-                'nice' => 0,
-            ],
-            'supervisor-2' => [
-                'connection' => 'redis',
-                'queue' => ['default'],
-                'balance' => 'auto',
-                'maxProcesses' => 10,
-                'minProcesses' => 1,
-                'balanceMaxShift' => 5,
-                'balanceCooldown' => 1,
-                'memory' => 128,
-                'tries' => 1,
-                'nice' => 0,
-            ],
-            'supervisor-3' => [
-                'connection' => 'redis',
-                'queue' => ['default'],
-                'balance' => 'auto',
-                'maxProcesses' => 10,
+                'maxProcesses' => (int) env('HORIZON_DEFAULT_MAX', 6),
                 'minProcesses' => 1,
                 'balanceMaxShift' => 5,
                 'balanceCooldown' => 1,
@@ -281,8 +239,10 @@ return [
                 'connection' => 'redis',
                 'queue' => ['imports'],
                 'balance' => 'auto',
-                'maxProcesses' => 15,
-                'minProcesses' => 3,
+                'maxProcesses' => (int) env('HORIZON_IMPORTS_MAX', 4),
+                // minProcesses 1 y no 3: las importaciones son esporádicas y mantener tres
+                // workers vivos a todas horas costaba ~180 MB permanentes por nada.
+                'minProcesses' => 1,
                 'balanceMaxShift' => 5,
                 'balanceCooldown' => 2,
                 'memory' => 256,
@@ -307,12 +267,6 @@ return [
 
         'local' => [
             'supervisor-1' => [
-                'maxProcesses' => 3,
-            ],
-            'supervisor-2' => [
-                'maxProcesses' => 3,
-            ],
-            'supervisor-3' => [
                 'maxProcesses' => 3,
             ],
             'supervisor-imports' => [
