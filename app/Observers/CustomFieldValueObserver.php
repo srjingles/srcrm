@@ -6,6 +6,8 @@ namespace App\Observers;
 
 use App\Actions\CustomFields\EnsureTagOptionsExist;
 use App\Models\CustomFieldValue;
+use App\Support\CustomFields\DynamicChoices;
+use App\Support\CustomFields\FieldValueLabels;
 use Illuminate\Support\Carbon;
 use Relaticle\CustomFields\Enums\FieldDataType;
 use Relaticle\CustomFields\Facades\CustomFieldsType;
@@ -100,12 +102,19 @@ final readonly class CustomFieldValueObserver
         $dataType = CustomFieldsType::getFieldType($field->type)->dataType;
 
         $label = match ($dataType) {
-            FieldDataType::SINGLE_CHOICE => $this->optionLabel($field, $value) ?? (string) $value,
+            // Un choice cuyas opciones NO están en tabla (las calcula el tipo en runtime,
+            // p. ej. los miembros del equipo) no casa con ninguna fila: sin preguntar al
+            // proveedor dinámico, la línea de tiempo enseñaría el ULID crudo.
+            FieldDataType::SINGLE_CHOICE => $this->optionLabel($field, $value)
+                ?? DynamicChoices::forField($field)?->labelFor($value)
+                ?? (string) $value,
             FieldDataType::MULTI_CHOICE => $this->multiOptionLabels($field, $value),
             FieldDataType::BOOLEAN => $value ? 'Yes' : 'No',
             FieldDataType::DATE => $value instanceof Carbon ? $value->toDateString() : (string) $value,
             FieldDataType::DATE_TIME => $value instanceof Carbon ? $value->toDateTimeString() : (string) $value,
-            default => (string) $value,
+            // Un tipo con representación propia (una duración en minutos) pintaría su
+            // entraña: "300" en vez de "5h". Ver FormatsFieldValue.
+            default => FieldValueLabels::for($field->type, $value) ?? (string) $value,
         };
 
         return ['value' => $value, 'label' => $label];
