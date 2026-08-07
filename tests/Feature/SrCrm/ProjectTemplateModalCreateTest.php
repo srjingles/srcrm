@@ -37,7 +37,7 @@ it('crea la plantilla desde el modal del listado', function (): void {
     livewire(ListProjectTemplates::class)
         ->callAction('create', data: [
             'name' => 'Web corporativa',
-            'work_type' => ProjectTemplate::WORK_TYPES[0],
+            'work_type' => ProjectTemplate::workTypes()[0],
             'is_active' => true,
         ])
         ->assertHasNoActionErrors();
@@ -55,7 +55,7 @@ it('lleva a la edición tras crearla, que es donde se añaden las tareas', funct
     $componente = livewire(ListProjectTemplates::class)
         ->callAction('create', data: [
             'name' => 'Fee mensual RRSS',
-            'work_type' => ProjectTemplate::WORK_TYPES[0],
+            'work_type' => ProjectTemplate::workTypes()[0],
             'is_active' => true,
         ])
         ->assertHasNoActionErrors();
